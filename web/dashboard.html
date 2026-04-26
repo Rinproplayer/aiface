@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - AI Face Attendance</title>
+    <link rel="stylesheet" href="/web/css/style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- SIDEBAR -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <span class="icon">🎓</span>
+                <h2>AI Attendance</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/dashboard" class="nav-item active">
+                    <span class="nav-icon">📊</span> Tổng quan
+                </a>
+                <a href="/students-page" class="nav-item">
+                    <span class="nav-icon">👥</span> Sinh viên
+                </a>
+                <a href="/classes-page" class="nav-item">
+                    <span class="nav-icon">📚</span> Lớp học
+                </a>
+                <a href="/attendance-page" class="nav-item">
+                    <span class="nav-icon">✅</span> Điểm danh
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">👤</div>
+                    <div>
+                        <div class="user-name" id="userName">Giảng viên</div>
+                        <div class="user-role">Quản trị viên</div>
+                    </div>
+                </div>
+                <button class="btn btn-outline btn-sm" onclick="logout()" style="width:100%;justify-content:center;">
+                    🚪 Đăng xuất
+                </button>
+            </div>
+        </aside>
+
+        <!-- MAIN -->
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>📊 Tổng quan</h1>
+                    <p>Dashboard hệ thống điểm danh</p>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="realtime-dot" id="realtimeDot"></span>
+                    <span style="font-size:13px;color:var(--text-secondary);">Realtime</span>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card blue">
+                    <div class="stat-icon">👥</div>
+                    <div class="stat-value" id="statStudents">0</div>
+                    <div class="stat-label">Tổng sinh viên</div>
+                </div>
+                <div class="stat-card green">
+                    <div class="stat-icon">📚</div>
+                    <div class="stat-value" id="statClasses">0</div>
+                    <div class="stat-label">Lớp học</div>
+                </div>
+                <div class="stat-card orange">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-value" id="statToday">0</div>
+                    <div class="stat-label">Điểm danh hôm nay</div>
+                </div>
+                <div class="stat-card purple">
+                    <div class="stat-icon">🧠</div>
+                    <div class="stat-value" id="statFaces">0</div>
+                    <div class="stat-label">Khuôn mặt đã đăng ký</div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <!-- Recent Activity -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>🕐 Hoạt động gần đây</h2>
+                    </div>
+                    <div id="recentActivity">
+                        <div class="empty-state">
+                            <div class="icon">📭</div>
+                            <p>Chưa có hoạt động nào</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Realtime Feed -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>🔴 Điểm danh Realtime</h2>
+                        <span class="realtime-dot"></span>
+                    </div>
+                    <div id="attendanceFeed">
+                        <div class="empty-state">
+                            <div class="icon">📡</div>
+                            <p>Đang chờ dữ liệu realtime...<br><small>Chạy <code>python main.py</code> để bắt đầu điểm danh</small></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Guide -->
+            <div class="panel" style="margin-top:8px;">
+                <div class="panel-header">
+                    <h2>📖 Hướng dẫn sử dụng</h2>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
+                    <div class="feed-item" style="flex-direction:column;text-align:center;padding:20px;">
+                        <div style="font-size:32px;margin-bottom:8px;">1️⃣</div>
+                        <strong>Thêm sinh viên</strong>
+                        <small style="color:var(--text-secondary);">Vào trang Sinh viên → Thêm mới</small>
+                    </div>
+                    <div class="feed-item" style="flex-direction:column;text-align:center;padding:20px;">
+                        <div style="font-size:32px;margin-bottom:8px;">2️⃣</div>
+                        <strong>Đăng ký khuôn mặt</strong>
+                        <small style="color:var(--text-secondary);">Chạy: python register_face.py</small>
+                    </div>
+                    <div class="feed-item" style="flex-direction:column;text-align:center;padding:20px;">
+                        <div style="font-size:32px;margin-bottom:8px;">3️⃣</div>
+                        <strong>Train model</strong>
+                        <small style="color:var(--text-secondary);">Chạy: python train_model.py</small>
+                    </div>
+                    <div class="feed-item" style="flex-direction:column;text-align:center;padding:20px;">
+                        <div style="font-size:32px;margin-bottom:8px;">4️⃣</div>
+                        <strong>Bắt đầu điểm danh</strong>
+                        <small style="color:var(--text-secondary);">Chạy: python main.py</small>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/web/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            await refreshDashboardStats();
+            await loadRecentActivity();
+        });
+
+        async function loadRecentActivity() {
+            try {
+                const data = await apiCall('/api/dashboard/recent?limit=8');
+                const container = document.getElementById('recentActivity');
+                if (!data || data.length === 0) return;
+
+                container.innerHTML = data.map(item => {
+                    const initials = item.full_name.split(' ').map(w => w[0]).join('').slice(-2);
+                    return `
+                        <div class="feed-item">
+                            <div class="feed-avatar">${initials}</div>
+                            <div class="feed-info">
+                                <div class="feed-name">${item.full_name}</div>
+                                <div class="feed-detail">${item.student_code} • ${item.class_code}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                ${statusBadge(item.status)}
+                                <div class="feed-time">${formatDateTime(item.check_in_time)}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) { console.error(e); }
+        }
+    </script>
+</body>
+</html>

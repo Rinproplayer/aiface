@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Điểm danh - AI Face Attendance</title>
+    <link rel="stylesheet" href="/web/css/style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand"><span class="icon">🎓</span><h2>AI Attendance</h2></div>
+            <nav class="sidebar-nav">
+                <a href="/dashboard" class="nav-item"><span class="nav-icon">📊</span> Tổng quan</a>
+                <a href="/students-page" class="nav-item"><span class="nav-icon">👥</span> Sinh viên</a>
+                <a href="/classes-page" class="nav-item"><span class="nav-icon">📚</span> Lớp học</a>
+                <a href="/attendance-page" class="nav-item active"><span class="nav-icon">✅</span> Điểm danh</a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info"><div class="user-avatar">👤</div><div><div class="user-name" id="userName">Giảng viên</div><div class="user-role">Quản trị viên</div></div></div>
+                <button class="btn btn-outline btn-sm" onclick="logout()" style="width:100%;justify-content:center;">🚪 Đăng xuất</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header">
+                <div><h1>✅ Điểm danh</h1><p>Xem và quản lý điểm danh sinh viên</p></div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="realtime-dot" id="realtimeDot"></span>
+                    <span style="font-size:13px;color:var(--text-secondary);">Realtime</span>
+                </div>
+            </div>
+
+            <!-- Filter Bar -->
+            <div class="panel">
+                <div class="filter-bar">
+                    <select id="filterClass" class="form-control" onchange="loadAttendance()">
+                        <option value="">-- Chọn lớp --</option>
+                    </select>
+                    <input type="date" id="filterDate" class="form-control" onchange="loadAttendance()">
+                    <button class="btn btn-primary" onclick="loadAttendance()">🔍 Xem</button>
+                    <button class="btn btn-success" onclick="exportExcel()">📥 Xuất Excel</button>
+                    <button class="btn btn-outline" onclick="exportSummary()">📊 Tổng hợp Excel</button>
+                </div>
+            </div>
+
+            <!-- Attendance Table -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 id="attendanceTitle">Danh sách điểm danh</h2>
+                    <span id="attendanceCount" class="badge badge-info">0 sinh viên</span>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>STT</th><th>Mã SV</th><th>Họ và tên</th><th>Thời gian</th><th>Trạng thái</th><th>Độ tin cậy</th></tr></thead>
+                        <tbody id="attendanceTable">
+                            <tr><td colspan="6" class="empty-state"><div class="icon">📋</div><p>Chọn lớp và ngày để xem điểm danh</p></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Summary Panel -->
+            <div class="panel" id="summaryPanel" style="display:none;">
+                <div class="panel-header"><h2>📊 Thống kê tổng hợp</h2></div>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>STT</th><th>Mã SV</th><th>Họ tên</th><th>Có mặt</th><th>Trễ</th><th>Tổng buổi</th><th>Tỷ lệ</th></tr></thead>
+                        <tbody id="summaryTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Realtime Feed -->
+            <div class="panel">
+                <div class="panel-header"><h2>🔴 Điểm danh Realtime</h2><span class="realtime-dot"></span></div>
+                <div id="attendanceFeed">
+                    <div class="empty-state"><div class="icon">📡</div><p>Đang chờ...<br><small>Chạy <code>python main.py</code></small></p></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/web/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('filterDate').value = new Date().toISOString().split('T')[0];
+            loadClassFilter();
+        });
+
+        async function loadClassFilter() {
+            try {
+                const classes = await apiCall('/api/classes');
+                const sel = document.getElementById('filterClass');
+                classes.forEach(c => {
+                    const o = document.createElement('option');
+                    o.value = c.id;
+                    o.textContent = `${c.class_code} - ${c.class_name}`;
+                    sel.appendChild(o);
+                });
+            } catch (e) {}
+        }
+
+        async function loadAttendance() {
+            const classId = document.getElementById('filterClass').value;
+            const date = document.getElementById('filterDate').value;
+            if (!classId) { showToast('Vui lòng chọn lớp!', 'warning'); return; }
+
+            try {
+                let url = `/api/attendance?class_id=${classId}`;
+                if (date) url += `&date=${date}`;
+                const data = await apiCall(url);
+                const tbody = document.getElementById('attendanceTable');
+                document.getElementById('attendanceCount').textContent = `${data.length} sinh viên`;
+
+                if (!data.length) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><p>Không có dữ liệu điểm danh</p></td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.map((a, i) => `
+                    <tr>
+                        <td>${i+1}</td>
+                        <td><strong>${a.student_code}</strong></td>
+                        <td>${a.full_name}</td>
+                        <td>${formatDateTime(a.check_in_time)}</td>
+                        <td>${statusBadge(a.status)}</td>
+                        <td><span class="badge badge-info">${(a.confidence * 100).toFixed(0)}%</span></td>
+                    </tr>`).join('');
+
+                // Load summary
+                loadSummary(classId);
+            } catch (e) { showToast('Lỗi tải dữ liệu', 'error'); }
+        }
+
+        async function loadSummary(classId) {
+            try {
+                const data = await apiCall(`/api/attendance/summary?class_id=${classId}`);
+                if (!data.length) return;
+                document.getElementById('summaryPanel').style.display = 'block';
+                document.getElementById('summaryTable').innerHTML = data.map((s, i) => {
+                    const total = s.total_sessions || 0;
+                    const attended = s.total_attended || 0;
+                    const rate = total > 0 ? ((attended / total) * 100).toFixed(0) : 0;
+                    const rateClass = rate >= 80 ? 'badge-success' : rate >= 50 ? 'badge-warning' : 'badge-danger';
+                    return `<tr><td>${i+1}</td><td>${s.student_code}</td><td>${s.full_name}</td>
+                        <td>${s.present_count || 0}</td><td>${s.late_count || 0}</td><td>${total}</td>
+                        <td><span class="badge ${rateClass}">${rate}%</span></td></tr>`;
+                }).join('');
+            } catch (e) {}
+        }
+
+        async function exportExcel() {
+            const classId = document.getElementById('filterClass').value;
+            const date = document.getElementById('filterDate').value;
+            if (!classId) { showToast('Chọn lớp trước!', 'warning'); return; }
+            try {
+                let url = `/api/export/attendance?class_id=${classId}`;
+                if (date) url += `&date=${date}`;
+                const res = await fetch(url);
+                if (!res.ok) { const err = await res.json(); throw new Error(err.detail); }
+                const blob = await res.blob();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `diemdanh_${date || 'all'}.xlsx`;
+                a.click();
+                showToast('Xuất Excel thành công!', 'success');
+            } catch (e) { showToast(e.message || 'Lỗi xuất Excel', 'error'); }
+        }
+
+        async function exportSummary() {
+            const classId = document.getElementById('filterClass').value;
+            if (!classId) { showToast('Chọn lớp trước!', 'warning'); return; }
+            try {
+                const res = await fetch(`/api/export/summary?class_id=${classId}`);
+                if (!res.ok) { const err = await res.json(); throw new Error(err.detail); }
+                const blob = await res.blob();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `tonghop.xlsx`;
+                a.click();
+                showToast('Xuất tổng hợp thành công!', 'success');
+            } catch (e) { showToast(e.message || 'Lỗi', 'error'); }
+        }
+    </script>
+</body>
+</html>
