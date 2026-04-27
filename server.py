@@ -11,10 +11,11 @@ import asyncio
 from datetime import datetime, date
 from typing import Optional, List
 
-from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 
 import pandas as pd
@@ -48,6 +49,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Tắt cache trình duyệt (dev mode)
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
+
+app.add_middleware(NoCacheMiddleware)
 
 # Phục vụ file tĩnh (Web Dashboard)
 web_dir = os.path.join(BASE_DIR, "web")

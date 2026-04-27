@@ -1,207 +1,57 @@
 <!DOCTYPE html>
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản lý lớp học - AI Face Attendance</title>
-    <link rel="stylesheet" href="/web/css/style.css">
-</head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Lớp học - AI Face Attendance</title><link rel="stylesheet" href="/web/css/style.css"></head>
 <body>
-    <div class="app-layout">
-        <aside class="sidebar">
-            <div class="sidebar-brand"><span class="icon">🎓</span><h2>AI Attendance</h2></div>
-            <nav class="sidebar-nav">
-                <a href="/dashboard" class="nav-item"><span class="nav-icon">📊</span> Tổng quan</a>
-                <a href="/students-page" class="nav-item"><span class="nav-icon">👥</span> Sinh viên</a>
-                <a href="/classes-page" class="nav-item active"><span class="nav-icon">📚</span> Lớp học</a>
-                <a href="/attendance-page" class="nav-item"><span class="nav-icon">✅</span> Điểm danh</a>
-            </nav>
-            <div class="sidebar-footer">
-                <div class="user-info"><div class="user-avatar">👤</div><div><div class="user-name" id="userName">Giảng viên</div><div class="user-role">Quản trị viên</div></div></div>
-                <button class="btn btn-outline btn-sm" onclick="logout()" style="width:100%;justify-content:center;">🚪 Đăng xuất</button>
+    <div class="animated-bg"><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
+    <div class="app">
+        <div id="sidebar-root"></div>
+        <main class="main">
+            <div class="page-top">
+                <div><h1>Quản lý lớp học</h1><p class="desc">Tạo và quản lý các lớp học</p></div>
+                <button class="btn btn-primary" onclick="openAddC()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Thêm lớp học</button>
             </div>
-        </aside>
-
-        <main class="main-content">
-            <div class="page-header">
-                <div><h1>📚 Quản lý lớp học</h1><p>Tạo và quản lý các lớp học</p></div>
-                <button class="btn btn-primary" onclick="openAddClass()">➕ Thêm lớp học</button>
-            </div>
-
             <div class="panel">
-                <div class="panel-header"><h2>Danh sách lớp học</h2></div>
-                <div class="table-container">
-                    <table>
-                        <thead><tr><th>STT</th><th>Mã lớp</th><th>Tên lớp</th><th>Giảng viên</th><th>Lịch học</th><th>Phòng</th><th>Sĩ số</th><th>Thao tác</th></tr></thead>
-                        <tbody id="classTable"><tr><td colspan="8" class="empty-state"><p>⏳ Đang tải...</p></td></tr></tbody>
-                    </table>
-                </div>
+                <div class="panel-head"><h2>Danh sách lớp học</h2></div>
+                <div class="tbl-wrap"><table><thead><tr><th>STT</th><th>Mã lớp</th><th>Tên lớp</th><th>Giảng viên</th><th>Lịch học</th><th>Phòng</th><th>Sĩ số</th><th>Thao tác</th></tr></thead>
+                <tbody id="cTbl"><tr><td colspan="8" class="empty"><p>Đang tải...</p></td></tr></tbody></table></div>
             </div>
-
-            <!-- Enrolled Students Panel -->
-            <div class="panel" id="enrollPanel" style="display:none;">
-                <div class="panel-header">
-                    <h2 id="enrollTitle">Sinh viên trong lớp</h2>
-                    <button class="btn btn-primary btn-sm" onclick="openEnrollModal()">➕ Thêm SV vào lớp</button>
-                </div>
-                <div class="table-container">
-                    <table>
-                        <thead><tr><th>STT</th><th>Mã SV</th><th>Họ tên</th><th>Khuôn mặt</th><th>Thao tác</th></tr></thead>
-                        <tbody id="enrollTable"></tbody>
-                    </table>
-                </div>
+            <div class="panel" id="epanel" style="display:none">
+                <div class="panel-head"><h2 id="eTitle">Sinh viên trong lớp</h2><button class="btn btn-primary btn-sm" onclick="openEnroll()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Thêm SV</button></div>
+                <div class="tbl-wrap"><table><thead><tr><th>STT</th><th>Mã SV</th><th>Họ tên</th><th>Khuôn mặt</th><th>Thao tác</th></tr></thead><tbody id="eTbl"></tbody></table></div>
             </div>
         </main>
     </div>
-
-    <!-- Class Modal -->
-    <div class="modal-overlay" id="classModal">
-        <div class="modal">
-            <div class="modal-header"><h3 id="classModalTitle">Thêm lớp học</h3><button class="modal-close" onclick="closeModal('classModal')">✕</button></div>
-            <form id="classForm" onsubmit="saveClass(event)">
-                <input type="hidden" id="classEditId">
-                <div class="form-group"><label>Mã lớp *</label><input type="text" id="c_code" class="form-control" placeholder="VD: CS101" required></div>
-                <div class="form-group"><label>Tên lớp *</label><input type="text" id="c_name" class="form-control" placeholder="Nhập môn Lập trình" required></div>
-                <div class="form-group"><label>Giảng viên</label><select id="c_lecturer" class="form-control"><option value="">-- Chọn giảng viên --</option></select></div>
-                <div class="form-group"><label>Lịch học</label><input type="text" id="c_schedule" class="form-control" placeholder="T2-T4 7:30-9:00"></div>
-                <div class="form-group"><label>Phòng</label><input type="text" id="c_room" class="form-control" placeholder="A101"></div>
-                <div class="modal-footer"><button type="button" class="btn btn-outline" onclick="closeModal('classModal')">Hủy</button><button type="submit" class="btn btn-primary">💾 Lưu</button></div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Enroll Modal -->
-    <div class="modal-overlay" id="enrollModal">
-        <div class="modal">
-            <div class="modal-header"><h3>Thêm sinh viên vào lớp</h3><button class="modal-close" onclick="closeModal('enrollModal')">✕</button></div>
-            <div class="form-group"><label>Chọn sinh viên</label><select id="enrollStudentId" class="form-control"><option value="">-- Chọn --</option></select></div>
-            <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('enrollModal')">Hủy</button><button class="btn btn-primary" onclick="doEnroll()">✅ Thêm vào lớp</button></div>
-        </div>
-    </div>
-
-    <script src="/web/js/app.js"></script>
+    <div class="modal-bg" id="cModal"><div class="modal">
+        <div class="modal-top"><h3 id="cMTitle">Thêm lớp</h3><button class="modal-x" onclick="closeModal('cModal')">✕</button></div>
+        <form id="cFrm" onsubmit="saveC(event)"><input type="hidden" id="cEId">
+            <div class="fg"><label>Mã lớp *</label><input type="text" id="cCode" class="fc" required></div>
+            <div class="fg"><label>Tên lớp *</label><input type="text" id="cName" class="fc" required></div>
+            <div class="fg"><label>Giảng viên</label><select id="cLec" class="fc"><option value="">-- Chọn --</option></select></div>
+            <div class="fg"><label>Lịch học</label><input type="text" id="cSched" class="fc"></div>
+            <div class="fg"><label>Phòng</label><input type="text" id="cRoom" class="fc"></div>
+            <div class="modal-btns"><button type="button" class="btn btn-ghost" onclick="closeModal('cModal')">Hủy</button><button type="submit" class="btn btn-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Lưu</button></div>
+        </form>
+    </div></div>
+    <div class="modal-bg" id="eModal"><div class="modal">
+        <div class="modal-top"><h3>Thêm SV vào lớp</h3><button class="modal-x" onclick="closeModal('eModal')">✕</button></div>
+        <div class="fg"><label>Chọn sinh viên</label><select id="eSel" class="fc"><option value="">-- Chọn --</option></select></div>
+        <div class="modal-btns"><button class="btn btn-ghost" onclick="closeModal('eModal')">Hủy</button><button class="btn btn-primary" onclick="doEnroll()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Thêm</button></div>
+    </div></div>
+    <script src="/web/js/app.js"></script><script src="/web/js/sidebar.js"></script>
     <script>
-        let allClasses = [];
-        let allStudents = [];
-        let selectedClassId = null;
-
-        document.addEventListener('DOMContentLoaded', () => { loadClasses(); loadLecturers(); });
-
-        async function loadClasses() {
-            try {
-                allClasses = await apiCall('/api/classes');
-                const tbody = document.getElementById('classTable');
-                if (!allClasses.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><p>📭 Chưa có lớp học</p></td></tr>'; return; }
-                tbody.innerHTML = allClasses.map((c, i) => `
-                    <tr>
-                        <td>${i+1}</td><td><strong>${c.class_code}</strong></td><td>${c.class_name}</td>
-                        <td>${c.lecturer_name || '-'}</td><td>${c.schedule || '-'}</td><td>${c.room || '-'}</td>
-                        <td><span class="badge badge-info">${c.student_count || 0}</span></td>
-                        <td>
-                            <button class="btn btn-outline btn-sm" onclick="viewStudents(${c.id},'${c.class_code} - ${c.class_name}')">👥</button>
-                            <button class="btn btn-outline btn-sm" onclick="editClass(${c.id})">✏️</button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteClass(${c.id},'${c.class_name}')">🗑️</button>
-                        </td>
-                    </tr>`).join('');
-            } catch (e) { showToast('Lỗi tải lớp học', 'error'); }
-        }
-
-        async function loadLecturers() {
-            try {
-                const lecturers = await apiCall('/api/lecturers');
-                const sel = document.getElementById('c_lecturer');
-                lecturers.forEach(l => { const o = document.createElement('option'); o.value = l.id; o.textContent = l.full_name; sel.appendChild(o); });
-            } catch(e) {}
-        }
-
-        function openAddClass() {
-            document.getElementById('classModalTitle').textContent = 'Thêm lớp học';
-            document.getElementById('classEditId').value = '';
-            document.getElementById('classForm').reset();
-            openModal('classModal');
-        }
-
-        function editClass(id) {
-            const c = allClasses.find(x => x.id === id);
-            if (!c) return;
-            document.getElementById('classModalTitle').textContent = 'Sửa lớp học';
-            document.getElementById('classEditId').value = c.id;
-            document.getElementById('c_code').value = c.class_code;
-            document.getElementById('c_name').value = c.class_name;
-            document.getElementById('c_lecturer').value = c.lecturer_id || '';
-            document.getElementById('c_schedule').value = c.schedule || '';
-            document.getElementById('c_room').value = c.room || '';
-            openModal('classModal');
-        }
-
-        async function saveClass(e) {
-            e.preventDefault();
-            const id = document.getElementById('classEditId').value;
-            const data = {
-                class_code: document.getElementById('c_code').value,
-                class_name: document.getElementById('c_name').value,
-                lecturer_id: document.getElementById('c_lecturer').value ? parseInt(document.getElementById('c_lecturer').value) : null,
-                schedule: document.getElementById('c_schedule').value,
-                room: document.getElementById('c_room').value
-            };
-            try {
-                if (id) { await apiCall(`/api/classes/${id}`, 'PUT', data); showToast('Cập nhật thành công!', 'success'); }
-                else { await apiCall('/api/classes', 'POST', data); showToast('Thêm lớp thành công!', 'success'); }
-                closeModal('classModal'); await loadClasses();
-            } catch (e) { showToast(e.message, 'error'); }
-        }
-
-        async function deleteClass(id, name) {
-            if (!confirm(`Xóa lớp "${name}"?`)) return;
-            try { await apiCall(`/api/classes/${id}`, 'DELETE'); showToast('Đã xóa!', 'success'); await loadClasses(); }
-            catch (e) { showToast(e.message, 'error'); }
-        }
-
-        async function viewStudents(classId, title) {
-            selectedClassId = classId;
-            document.getElementById('enrollTitle').textContent = `Sinh viên: ${title}`;
-            document.getElementById('enrollPanel').style.display = 'block';
-            try {
-                const students = await apiCall(`/api/classes/${classId}/students`);
-                const tbody = document.getElementById('enrollTable');
-                if (!students.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><p>Chưa có SV</p></td></tr>'; return; }
-                tbody.innerHTML = students.map((s, i) => `
-                    <tr><td>${i+1}</td><td>${s.student_code}</td><td>${s.full_name}</td>
-                    <td>${s.face_registered ? '✅' : '❌'}</td>
-                    <td><button class="btn btn-danger btn-sm" onclick="removeFromClass(${s.id})">➖ Xóa khỏi lớp</button></td></tr>`).join('');
-            } catch (e) { showToast('Lỗi', 'error'); }
-        }
-
-        async function openEnrollModal() {
-            try {
-                allStudents = await apiCall('/api/students');
-                const sel = document.getElementById('enrollStudentId');
-                sel.innerHTML = '<option value="">-- Chọn sinh viên --</option>' +
-                    allStudents.map(s => `<option value="${s.id}">${s.student_code} - ${s.full_name}</option>`).join('');
-                openModal('enrollModal');
-            } catch (e) { showToast('Lỗi', 'error'); }
-        }
-
-        async function doEnroll() {
-            const sid = document.getElementById('enrollStudentId').value;
-            if (!sid) { showToast('Chọn sinh viên!', 'warning'); return; }
-            try {
-                await apiCall('/api/enrollment', 'POST', { student_id: parseInt(sid), class_id: selectedClassId });
-                showToast('Đã thêm!', 'success'); closeModal('enrollModal');
-                viewStudents(selectedClassId, document.getElementById('enrollTitle').textContent.replace('Sinh viên: ', ''));
-                await loadClasses();
-            } catch (e) { showToast(e.message, 'error'); }
-        }
-
-        async function removeFromClass(sid) {
-            if (!confirm('Xóa SV khỏi lớp?')) return;
-            try {
-                await apiCall(`/api/enrollment?student_id=${sid}&class_id=${selectedClassId}`, 'DELETE');
-                showToast('Đã xóa!', 'success');
-                viewStudents(selectedClassId, document.getElementById('enrollTitle').textContent.replace('Sinh viên: ', ''));
-                await loadClasses();
-            } catch (e) { showToast(e.message, 'error'); }
-        }
+        let classes=[],selCid=null;
+        document.addEventListener('DOMContentLoaded',()=>{loadC();loadLec()});
+        async function loadC(){try{classes=await apiCall('/api/classes');const t=document.getElementById('cTbl');if(!classes.length){t.innerHTML='<tr><td colspan="8" class="empty"><p>Chưa có lớp</p></td></tr>';return}
+            t.innerHTML=classes.map((c,i)=>`<tr><td>${i+1}</td><td><strong>${c.class_code}</strong></td><td>${c.class_name}</td><td>${c.lecturer_name||'—'}</td><td>${c.schedule||'—'}</td><td>${c.room||'—'}</td><td><span class="badge badge-info">${c.student_count||0}</span></td><td><button class="btn btn-ghost btn-sm" onclick="viewSt(${c.id},'${c.class_code} - ${c.class_name}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></button> <button class="btn btn-ghost btn-sm" onclick="editC(${c.id})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button> <button class="btn btn-red btn-sm" onclick="delC(${c.id},'${c.class_name}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td></tr>`).join('')}catch(e){showToast('Lỗi','error')}}
+        async function loadLec(){try{const l=await apiCall('/api/lecturers');const s=document.getElementById('cLec');l.forEach(x=>{const o=document.createElement('option');o.value=x.id;o.textContent=x.full_name;s.appendChild(o)})}catch(e){}}
+        function openAddC(){document.getElementById('cMTitle').textContent='Thêm lớp';document.getElementById('cEId').value='';document.getElementById('cFrm').reset();openModal('cModal')}
+        function editC(id){const c=classes.find(x=>x.id===id);if(!c)return;document.getElementById('cMTitle').textContent='Sửa lớp';document.getElementById('cEId').value=c.id;document.getElementById('cCode').value=c.class_code;document.getElementById('cName').value=c.class_name;document.getElementById('cLec').value=c.lecturer_id||'';document.getElementById('cSched').value=c.schedule||'';document.getElementById('cRoom').value=c.room||'';openModal('cModal')}
+        async function saveC(e){e.preventDefault();const id=document.getElementById('cEId').value;const d={class_code:document.getElementById('cCode').value,class_name:document.getElementById('cName').value,lecturer_id:document.getElementById('cLec').value?parseInt(document.getElementById('cLec').value):null,schedule:document.getElementById('cSched').value,room:document.getElementById('cRoom').value};try{if(id){await apiCall(`/api/classes/${id}`,'PUT',d)}else{await apiCall('/api/classes','POST',d)}showToast('Thành công!','success');closeModal('cModal');await loadC()}catch(e){showToast(e.message,'error')}}
+        async function delC(id,n){if(!confirm(`Xóa "${n}"?`))return;try{await apiCall(`/api/classes/${id}`,'DELETE');showToast('Đã xóa!','success');await loadC()}catch(e){showToast(e.message,'error')}}
+        async function viewSt(cid,title){selCid=cid;document.getElementById('eTitle').textContent='SV: '+title;document.getElementById('epanel').style.display='block';try{const st=await apiCall(`/api/classes/${cid}/students`);const t=document.getElementById('eTbl');if(!st.length){t.innerHTML='<tr><td colspan="5" class="empty"><p>Chưa có SV</p></td></tr>';return}t.innerHTML=st.map((s,i)=>`<tr><td>${i+1}</td><td>${s.student_code}</td><td>${s.full_name}</td><td>${s.face_registered?'<span class="badge badge-ok">Đã ĐK</span>':'<span class="badge badge-err">Chưa</span>'}</td><td><button class="btn btn-red btn-sm" onclick="rmSt(${s.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg></button></td></tr>`).join('')}catch(e){showToast('Lỗi','error')}}
+        async function openEnroll(){try{const st=await apiCall('/api/students');const s=document.getElementById('eSel');s.innerHTML='<option value="">-- Chọn --</option>'+st.map(x=>`<option value="${x.id}">${x.student_code} - ${x.full_name}</option>`).join('');openModal('eModal')}catch(e){showToast('Lỗi','error')}}
+        async function doEnroll(){const sid=document.getElementById('eSel').value;if(!sid){showToast('Chọn SV!','warning');return}try{await apiCall('/api/enrollment','POST',{student_id:parseInt(sid),class_id:selCid});showToast('Đã thêm!','success');closeModal('eModal');viewSt(selCid,document.getElementById('eTitle').textContent.replace('SV: ',''));await loadC()}catch(e){showToast(e.message,'error')}}
+        async function rmSt(sid){if(!confirm('Xóa SV khỏi lớp?'))return;try{await apiCall(`/api/enrollment?student_id=${sid}&class_id=${selCid}`,'DELETE');showToast('Đã xóa!','success');viewSt(selCid,document.getElementById('eTitle').textContent.replace('SV: ',''));await loadC()}catch(e){showToast(e.message,'error')}}
     </script>
 </body>
 </html>

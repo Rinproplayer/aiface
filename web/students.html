@@ -1,188 +1,47 @@
 <!DOCTYPE html>
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản lý sinh viên - AI Face Attendance</title>
-    <link rel="stylesheet" href="/web/css/style.css">
-</head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Sinh viên - AI Face Attendance</title><link rel="stylesheet" href="/web/css/style.css"></head>
 <body>
-    <div class="app-layout">
-        <aside class="sidebar">
-            <div class="sidebar-brand"><span class="icon">🎓</span><h2>AI Attendance</h2></div>
-            <nav class="sidebar-nav">
-                <a href="/dashboard" class="nav-item"><span class="nav-icon">📊</span> Tổng quan</a>
-                <a href="/students-page" class="nav-item active"><span class="nav-icon">👥</span> Sinh viên</a>
-                <a href="/classes-page" class="nav-item"><span class="nav-icon">📚</span> Lớp học</a>
-                <a href="/attendance-page" class="nav-item"><span class="nav-icon">✅</span> Điểm danh</a>
-            </nav>
-            <div class="sidebar-footer">
-                <div class="user-info"><div class="user-avatar">👤</div><div><div class="user-name" id="userName">Giảng viên</div><div class="user-role">Quản trị viên</div></div></div>
-                <button class="btn btn-outline btn-sm" onclick="logout()" style="width:100%;justify-content:center;">🚪 Đăng xuất</button>
+    <div class="animated-bg"><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
+    <div class="app">
+        <div id="sidebar-root"></div>
+        <main class="main">
+            <div class="page-top">
+                <div><h1>Quản lý sinh viên</h1><p class="desc">Thêm, sửa, xóa thông tin sinh viên</p></div>
+                <button class="btn btn-primary" onclick="openAdd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Thêm sinh viên</button>
             </div>
-        </aside>
-
-        <main class="main-content">
-            <div class="page-header">
-                <div><h1>👥 Quản lý sinh viên</h1><p>Thêm, sửa, xóa thông tin sinh viên</p></div>
-                <button class="btn btn-primary" onclick="openAddModal()">➕ Thêm sinh viên</button>
-            </div>
-
             <div class="panel">
-                <div class="panel-header">
-                    <h2>Danh sách sinh viên</h2>
-                    <input type="text" class="form-control" id="searchInput" placeholder="🔍 Tìm kiếm..." style="width:250px;" oninput="filterStudents()">
-                </div>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>STT</th><th>Mã SV</th><th>Họ và tên</th><th>Email</th><th>SĐT</th><th>Khuôn mặt</th><th>Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody id="studentTable">
-                            <tr><td colspan="7" class="empty-state"><div class="icon">⏳</div><p>Đang tải...</p></td></tr>
-                        </tbody>
-                    </table>
-                </div>
+                <div class="panel-head"><h2>Danh sách sinh viên</h2><input type="text" class="fc" id="search" placeholder="Tìm kiếm..." style="width:220px" oninput="filter()"></div>
+                <div class="tbl-wrap"><table><thead><tr><th>STT</th><th>Mã SV</th><th>Họ và tên</th><th>Email</th><th>SĐT</th><th>Khuôn mặt</th><th>Thao tác</th></tr></thead>
+                <tbody id="tbl"><tr><td colspan="7" class="empty"><p>Đang tải...</p></td></tr></tbody></table></div>
             </div>
         </main>
     </div>
-
-    <!-- Add/Edit Modal -->
-    <div class="modal-overlay" id="studentModal">
+    <div class="modal-bg" id="modal">
         <div class="modal">
-            <div class="modal-header">
-                <h3 id="modalTitle">Thêm sinh viên</h3>
-                <button class="modal-close" onclick="closeModal('studentModal')">✕</button>
-            </div>
-            <form id="studentForm" onsubmit="saveStudent(event)">
-                <input type="hidden" id="editId">
-                <div class="form-group">
-                    <label>Mã sinh viên *</label>
-                    <input type="text" id="f_code" class="form-control" placeholder="VD: SV001" required>
-                </div>
-                <div class="form-group">
-                    <label>Họ và tên *</label>
-                    <input type="text" id="f_name" class="form-control" placeholder="Nguyễn Văn A" required>
-                </div>
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="f_email" class="form-control" placeholder="email@example.com">
-                </div>
-                <div class="form-group">
-                    <label>Số điện thoại</label>
-                    <input type="text" id="f_phone" class="form-control" placeholder="0123456789">
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline" onclick="closeModal('studentModal')">Hủy</button>
-                    <button type="submit" class="btn btn-primary">💾 Lưu</button>
-                </div>
+            <div class="modal-top"><h3 id="mTitle">Thêm sinh viên</h3><button class="modal-x" onclick="closeModal('modal')">✕</button></div>
+            <form id="frm" onsubmit="save(event)">
+                <input type="hidden" id="eId">
+                <div class="fg"><label>Mã sinh viên *</label><input type="text" id="fCode" class="fc" required></div>
+                <div class="fg"><label>Họ và tên *</label><input type="text" id="fName" class="fc" required></div>
+                <div class="fg"><label>Email</label><input type="email" id="fEmail" class="fc"></div>
+                <div class="fg"><label>Số điện thoại</label><input type="text" id="fPhone" class="fc"></div>
+                <div class="modal-btns"><button type="button" class="btn btn-ghost" onclick="closeModal('modal')">Hủy</button><button type="submit" class="btn btn-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Lưu</button></div>
             </form>
         </div>
     </div>
-
-    <script src="/web/js/app.js"></script>
+    <script src="/web/js/app.js"></script><script src="/web/js/sidebar.js"></script>
     <script>
-        let allStudents = [];
-
-        document.addEventListener('DOMContentLoaded', loadStudents);
-
-        async function loadStudents() {
-            try {
-                allStudents = await apiCall('/api/students');
-                renderStudents(allStudents);
-            } catch (e) {
-                document.getElementById('studentTable').innerHTML = '<tr><td colspan="7" class="empty-state"><p>❌ Lỗi tải dữ liệu</p></td></tr>';
-            }
-        }
-
-        function renderStudents(students) {
-            const tbody = document.getElementById('studentTable');
-            if (!students || students.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><div class="icon">📭</div><p>Chưa có sinh viên nào</p></td></tr>';
-                return;
-            }
-            tbody.innerHTML = students.map((s, i) => `
-                <tr>
-                    <td>${i + 1}</td>
-                    <td><strong>${s.student_code}</strong></td>
-                    <td>${s.full_name}</td>
-                    <td>${s.email || '-'}</td>
-                    <td>${s.phone || '-'}</td>
-                    <td>${s.face_registered ? '<span class="badge badge-success">✅ Đã đăng ký</span>' : '<span class="badge badge-danger">❌ Chưa</span>'}</td>
-                    <td>
-                        <button class="btn btn-outline btn-sm" onclick="editStudent(${s.id})">✏️</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteStudent(${s.id}, '${s.full_name}')">🗑️</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        function filterStudents() {
-            const q = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = allStudents.filter(s =>
-                s.student_code.toLowerCase().includes(q) ||
-                s.full_name.toLowerCase().includes(q) ||
-                (s.email || '').toLowerCase().includes(q)
-            );
-            renderStudents(filtered);
-        }
-
-        function openAddModal() {
-            document.getElementById('modalTitle').textContent = 'Thêm sinh viên';
-            document.getElementById('editId').value = '';
-            document.getElementById('studentForm').reset();
-            openModal('studentModal');
-        }
-
-        function editStudent(id) {
-            const s = allStudents.find(x => x.id === id);
-            if (!s) return;
-            document.getElementById('modalTitle').textContent = 'Sửa sinh viên';
-            document.getElementById('editId').value = s.id;
-            document.getElementById('f_code').value = s.student_code;
-            document.getElementById('f_name').value = s.full_name;
-            document.getElementById('f_email').value = s.email || '';
-            document.getElementById('f_phone').value = s.phone || '';
-            openModal('studentModal');
-        }
-
-        async function saveStudent(e) {
-            e.preventDefault();
-            const id = document.getElementById('editId').value;
-            const data = {
-                student_code: document.getElementById('f_code').value,
-                full_name: document.getElementById('f_name').value,
-                email: document.getElementById('f_email').value,
-                phone: document.getElementById('f_phone').value
-            };
-
-            try {
-                if (id) {
-                    await apiCall(`/api/students/${id}`, 'PUT', data);
-                    showToast('Cập nhật sinh viên thành công!', 'success');
-                } else {
-                    await apiCall('/api/students', 'POST', data);
-                    showToast('Thêm sinh viên thành công!', 'success');
-                }
-                closeModal('studentModal');
-                await loadStudents();
-            } catch (e) {
-                showToast(e.message, 'error');
-            }
-        }
-
-        async function deleteStudent(id, name) {
-            if (!confirm(`Bạn có chắc muốn xóa sinh viên "${name}"?`)) return;
-            try {
-                await apiCall(`/api/students/${id}`, 'DELETE');
-                showToast('Đã xóa sinh viên!', 'success');
-                await loadStudents();
-            } catch (e) {
-                showToast(e.message, 'error');
-            }
-        }
+        let all=[];
+        document.addEventListener('DOMContentLoaded',load);
+        async function load(){try{all=await apiCall('/api/students');render(all)}catch(e){document.getElementById('tbl').innerHTML='<tr><td colspan="7" class="empty"><p>Lỗi tải dữ liệu</p></td></tr>'}}
+        function render(list){const t=document.getElementById('tbl');if(!list||!list.length){t.innerHTML='<tr><td colspan="7" class="empty"><p>Chưa có sinh viên</p></td></tr>';return}
+            t.innerHTML=list.map((s,i)=>`<tr><td>${i+1}</td><td><strong>${s.student_code}</strong></td><td>${s.full_name}</td><td>${s.email||'—'}</td><td>${s.phone||'—'}</td><td>${s.face_registered?'<span class="badge badge-ok">Đã ĐK</span>':'<span class="badge badge-err">Chưa</span>'}</td><td><button class="btn btn-ghost btn-sm" onclick="edit(${s.id})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button> <button class="btn btn-red btn-sm" onclick="del(${s.id},'${s.full_name}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td></tr>`).join('')}
+        function filter(){const q=document.getElementById('search').value.toLowerCase();render(all.filter(s=>s.student_code.toLowerCase().includes(q)||s.full_name.toLowerCase().includes(q)||(s.email||'').toLowerCase().includes(q)))}
+        function openAdd(){document.getElementById('mTitle').textContent='Thêm sinh viên';document.getElementById('eId').value='';document.getElementById('frm').reset();openModal('modal')}
+        function edit(id){const s=all.find(x=>x.id===id);if(!s)return;document.getElementById('mTitle').textContent='Sửa sinh viên';document.getElementById('eId').value=s.id;document.getElementById('fCode').value=s.student_code;document.getElementById('fName').value=s.full_name;document.getElementById('fEmail').value=s.email||'';document.getElementById('fPhone').value=s.phone||'';openModal('modal')}
+        async function save(e){e.preventDefault();const id=document.getElementById('eId').value;const d={student_code:document.getElementById('fCode').value,full_name:document.getElementById('fName').value,email:document.getElementById('fEmail').value,phone:document.getElementById('fPhone').value};try{if(id){await apiCall(`/api/students/${id}`,'PUT',d);showToast('Cập nhật thành công!','success')}else{await apiCall('/api/students','POST',d);showToast('Thêm thành công!','success')}closeModal('modal');await load()}catch(e){showToast(e.message,'error')}}
+        async function del(id,name){if(!confirm(`Xóa "${name}"?`))return;try{await apiCall(`/api/students/${id}`,'DELETE');showToast('Đã xóa!','success');await load()}catch(e){showToast(e.message,'error')}}
     </script>
 </body>
 </html>

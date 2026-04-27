@@ -7,168 +7,101 @@
     <link rel="stylesheet" href="/web/css/style.css">
 </head>
 <body>
-    <div class="app-layout">
-        <!-- SIDEBAR -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-brand">
-                <span class="icon">🎓</span>
+    <div class="animated-bg"><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"/></svg></div>
                 <h2>AI Attendance</h2>
             </div>
-            <nav class="sidebar-nav">
-                <a href="/dashboard" class="nav-item active">
-                    <span class="nav-icon">📊</span> Tổng quan
+            <nav>
+                <a href="/dashboard" class="nav-link active">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                    Tổng quan
                 </a>
-                <a href="/students-page" class="nav-item">
-                    <span class="nav-icon">👥</span> Sinh viên
+                <a href="/students-page" class="nav-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Sinh viên
                 </a>
-                <a href="/classes-page" class="nav-item">
-                    <span class="nav-icon">📚</span> Lớp học
+                <a href="/classes-page" class="nav-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+                    Lớp học
                 </a>
-                <a href="/attendance-page" class="nav-item">
-                    <span class="nav-icon">✅</span> Điểm danh
+                <a href="/attendance-page" class="nav-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    Điểm danh
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <div class="user-info">
-                    <div class="user-avatar">👤</div>
-                    <div>
-                        <div class="user-name" id="userName">Giảng viên</div>
-                        <div class="user-role">Quản trị viên</div>
-                    </div>
+                <div class="user-card">
+                    <div class="avatar"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+                    <div><div class="name" id="userName">Giảng viên</div><div class="role">Quản trị viên</div></div>
                 </div>
-                <button class="btn btn-outline btn-sm" onclick="logout()" style="width:100%;justify-content:center;">
-                    🚪 Đăng xuất
+                <button class="btn btn-ghost btn-sm" onclick="logout()" style="width:100%;justify-content:center">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    Đăng xuất
                 </button>
             </div>
         </aside>
 
-        <!-- MAIN -->
-        <main class="main-content">
-            <div class="page-header">
-                <div>
-                    <h1>📊 Tổng quan</h1>
-                    <p>Dashboard hệ thống điểm danh</p>
-                </div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <span class="realtime-dot" id="realtimeDot"></span>
-                    <span style="font-size:13px;color:var(--text-secondary);">Realtime</span>
-                </div>
+        <main class="main">
+            <div class="page-top">
+                <div><h1>Tổng quan</h1><p class="desc">Dashboard hệ thống điểm danh</p></div>
+                <div style="display:flex;align-items:center;gap:8px"><span class="dot" id="dot"></span><span style="font-size:12px;color:var(--text-dim)">Realtime</span></div>
             </div>
 
-            <!-- Stats Cards -->
-            <div class="stats-grid">
-                <div class="stat-card blue">
-                    <div class="stat-icon">👥</div>
-                    <div class="stat-value" id="statStudents">0</div>
-                    <div class="stat-label">Tổng sinh viên</div>
+            <div class="stats">
+                <div class="stat s1">
+                    <div class="glow"></div>
+                    <div class="s-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+                    <div class="s-val" id="sStudents">0</div><div class="s-label">Tổng sinh viên</div>
                 </div>
-                <div class="stat-card green">
-                    <div class="stat-icon">📚</div>
-                    <div class="stat-value" id="statClasses">0</div>
-                    <div class="stat-label">Lớp học</div>
+                <div class="stat s2">
+                    <div class="glow"></div>
+                    <div class="s-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg></div>
+                    <div class="s-val" id="sClasses">0</div><div class="s-label">Lớp học</div>
                 </div>
-                <div class="stat-card orange">
-                    <div class="stat-icon">✅</div>
-                    <div class="stat-value" id="statToday">0</div>
-                    <div class="stat-label">Điểm danh hôm nay</div>
+                <div class="stat s3">
+                    <div class="glow"></div>
+                    <div class="s-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+                    <div class="s-val" id="sToday">0</div><div class="s-label">Điểm danh hôm nay</div>
                 </div>
-                <div class="stat-card purple">
-                    <div class="stat-icon">🧠</div>
-                    <div class="stat-value" id="statFaces">0</div>
-                    <div class="stat-label">Khuôn mặt đã đăng ký</div>
+                <div class="stat s4">
+                    <div class="glow"></div>
+                    <div class="s-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg></div>
+                    <div class="s-val" id="sFaces">0</div><div class="s-label">Khuôn mặt đăng ký</div>
                 </div>
             </div>
 
             <div class="grid-2">
-                <!-- Recent Activity -->
                 <div class="panel">
-                    <div class="panel-header">
-                        <h2>🕐 Hoạt động gần đây</h2>
+                    <div class="panel-head">
+                        <h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Hoạt động gần đây</h2>
                     </div>
-                    <div id="recentActivity">
-                        <div class="empty-state">
-                            <div class="icon">📭</div>
-                            <p>Chưa có hoạt động nào</p>
-                        </div>
-                    </div>
+                    <div id="recent"><div class="empty"><div class="e-icon" style="font-size:32px;opacity:.3"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><p>Chưa có hoạt động</p></div></div>
                 </div>
-
-                <!-- Realtime Feed -->
                 <div class="panel">
-                    <div class="panel-header">
-                        <h2>🔴 Điểm danh Realtime</h2>
-                        <span class="realtime-dot"></span>
+                    <div class="panel-head">
+                        <h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49"/><path d="M7.76 16.24a6 6 0 0 1 0-8.49"/></svg>Điểm danh Realtime</h2>
+                        <span class="dot"></span>
                     </div>
-                    <div id="attendanceFeed">
-                        <div class="empty-state">
-                            <div class="icon">📡</div>
-                            <p>Đang chờ dữ liệu realtime...<br><small>Chạy <code>python main.py</code> để bắt đầu điểm danh</small></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Quick Guide -->
-            <div class="panel" style="margin-top:8px;">
-                <div class="panel-header">
-                    <h2>📖 Hướng dẫn sử dụng</h2>
-                </div>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
-                    <div class="feed-item" style="flex-direction:column;text-align:center;padding:20px;">
-                        <div style="font-size:32px;margin-bottom:8px;">1️⃣</div>
-                        <strong>Thêm sinh viên</strong>
-                        <small style="color:var(--text-secondary);">Vào trang Sinh viên → Thêm mới</small>
-                    </div>
-                    <div class="feed-item" style="flex-direction:column;text-align:center;padding:20px;">
-                        <div style="font-size:32px;margin-bottom:8px;">2️⃣</div>
-                        <strong>Đăng ký khuôn mặt</strong>
-                        <small style="color:var(--text-secondary);">Chạy: python register_face.py</small>
-                    </div>
-                    <div class="feed-item" style="flex-direction:column;text-align:center;padding:20px;">
-                        <div style="font-size:32px;margin-bottom:8px;">3️⃣</div>
-                        <strong>Train model</strong>
-                        <small style="color:var(--text-secondary);">Chạy: python train_model.py</small>
-                    </div>
-                    <div class="feed-item" style="flex-direction:column;text-align:center;padding:20px;">
-                        <div style="font-size:32px;margin-bottom:8px;">4️⃣</div>
-                        <strong>Bắt đầu điểm danh</strong>
-                        <small style="color:var(--text-secondary);">Chạy: python main.py</small>
-                    </div>
+                    <div id="feed"><div class="empty"><div class="e-icon" style="font-size:32px;opacity:.3"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49"/><path d="M7.76 16.24a6 6 0 0 1 0-8.49"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 19.07a10 10 0 0 1 0-14.14"/></svg></div><p>Đang chờ dữ liệu realtime...<br><small style="color:var(--text-muted)">Chạy <code>python main.py</code> để bắt đầu điểm danh</small></p></div></div>
                 </div>
             </div>
         </main>
     </div>
-
     <script src="/web/js/app.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            await refreshDashboardStats();
-            await loadRecentActivity();
-        });
-
-        async function loadRecentActivity() {
-            try {
-                const data = await apiCall('/api/dashboard/recent?limit=8');
-                const container = document.getElementById('recentActivity');
-                if (!data || data.length === 0) return;
-
-                container.innerHTML = data.map(item => {
-                    const initials = item.full_name.split(' ').map(w => w[0]).join('').slice(-2);
-                    return `
-                        <div class="feed-item">
-                            <div class="feed-avatar">${initials}</div>
-                            <div class="feed-info">
-                                <div class="feed-name">${item.full_name}</div>
-                                <div class="feed-detail">${item.student_code} • ${item.class_code}</div>
-                            </div>
-                            <div style="text-align:right;">
-                                ${statusBadge(item.status)}
-                                <div class="feed-time">${formatDateTime(item.check_in_time)}</div>
-                            </div>
-                        </div>
-                    `;
+        document.addEventListener('DOMContentLoaded',async()=>{await refreshStats();await loadRecent()});
+        async function loadRecent(){
+            try{
+                const d=await apiCall('/api/dashboard/recent?limit=8');const c=document.getElementById('recent');
+                if(!d||!d.length)return;
+                c.innerHTML=d.map(i=>{
+                    const ini=i.full_name.split(' ').map(w=>w[0]).join('').slice(-2);
+                    return`<div class="feed-item"><div class="feed-av">${ini}</div><div class="feed-info"><div class="feed-name">${i.full_name}</div><div class="feed-sub">${i.student_code} • ${i.class_code}</div></div><div style="text-align:right">${statusBadge(i.status)}<div class="feed-time">${fmtDateTime(i.check_in_time)}</div></div></div>`;
                 }).join('');
-            } catch (e) { console.error(e); }
+            }catch(e){}
         }
     </script>
 </body>

@@ -4,82 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đăng nhập - AI Face Attendance</title>
-    <meta name="description" content="Hệ thống điểm danh sinh viên bằng nhận diện khuôn mặt AI">
     <link rel="stylesheet" href="/web/css/style.css">
 </head>
 <body>
+    <div class="animated-bg"><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
     <div class="login-page">
-        <div class="login-container">
-            <div class="login-logo">
-                <span class="icon">🎓</span>
+        <div class="login-box">
+            <div class="logo">
+                <div class="logo-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"/></svg></div>
                 <h1>AI Face Attendance</h1>
-                <p>Hệ thống điểm danh bằng nhận diện khuôn mặt</p>
+                <p class="subtitle">Hệ thống điểm danh bằng nhận diện khuôn mặt</p>
             </div>
-
             <form id="loginForm" onsubmit="handleLogin(event)">
-                <div class="form-group">
-                    <label for="username">Tên đăng nhập</label>
-                    <input type="text" id="username" class="form-control" placeholder="Nhập tên đăng nhập" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Mật khẩu</label>
-                    <input type="password" id="password" class="form-control" placeholder="Nhập mật khẩu" required>
-                </div>
-                <div id="loginError" style="color: var(--accent-red); font-size: 13px; margin-bottom: 16px; display: none;"></div>
-                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 14px;" id="loginBtn">
-                    🔐 Đăng nhập
-                </button>
+                <div class="fg"><label>Tên đăng nhập</label><input type="text" id="username" class="fc" placeholder="Nhập tên đăng nhập" required autofocus></div>
+                <div class="fg"><label>Mật khẩu</label><input type="password" id="password" class="fc" placeholder="Nhập mật khẩu" required></div>
+                <div id="loginError" style="color:var(--red);font-size:12px;margin-bottom:14px;display:none"></div>
+                <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" id="loginBtn">Đăng nhập</button>
             </form>
-
-            <p style="text-align: center; margin-top: 24px; font-size: 12px; color: var(--text-muted);">
-                Tài khoản mặc định: admin / admin123
-            </p>
+            <p style="text-align:center;margin-top:28px;font-size:11px;color:var(--text-muted)">Tài khoản mặc định: <strong style="color:var(--text-dim)">admin / admin123</strong></p>
         </div>
     </div>
-
     <script>
-        // Kiểm tra đã đăng nhập chưa
-        if (localStorage.getItem('token')) {
-            window.location.href = '/dashboard';
-        }
-
-        async function handleLogin(e) {
-            e.preventDefault();
-            const btn = document.getElementById('loginBtn');
-            const errorDiv = document.getElementById('loginError');
-            
-            btn.innerHTML = '⏳ Đang đăng nhập...';
-            btn.disabled = true;
-            errorDiv.style.display = 'none';
-
-            try {
-                const res = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        username: document.getElementById('username').value,
-                        password: document.getElementById('password').value
-                    })
-                });
-
-                const data = await res.json();
-
-                if (res.ok) {
-                    localStorage.setItem('token', data.access_token);
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    window.location.href = '/dashboard';
-                } else {
-                    errorDiv.textContent = data.detail || 'Đăng nhập thất bại';
-                    errorDiv.style.display = 'block';
-                }
-            } catch (err) {
-                errorDiv.textContent = 'Không thể kết nối server. Hãy chạy: python server.py';
-                errorDiv.style.display = 'block';
-            }
-
-            btn.innerHTML = '🔐 Đăng nhập';
-            btn.disabled = false;
-        }
+        if(localStorage.getItem('token'))window.location.href='/dashboard';
+        async function handleLogin(e){
+            e.preventDefault();const btn=document.getElementById('loginBtn'),err=document.getElementById('loginError');
+            btn.textContent='Đang xử lý...';btn.disabled=true;err.style.display='none';
+            try{const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('username').value,password:document.getElementById('password').value})});
+                const d=await r.json();if(r.ok){localStorage.setItem('token',d.access_token);localStorage.setItem('user',JSON.stringify(d.user));window.location.href='/dashboard';}
+                else{err.textContent=d.detail||'Đăng nhập thất bại';err.style.display='block';}}
+            catch(ex){err.textContent='Không thể kết nối server';err.style.display='block';}
+            btn.textContent='Đăng nhập';btn.disabled=false;}
     </script>
 </body>
 </html>

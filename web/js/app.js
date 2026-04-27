@@ -1,230 +1,73 @@
-/**
- * AI Face Attendance - JavaScript Chính
- * =======================================
- * Xử lý logic cho Web Dashboard:
- * - API calls, WebSocket, Toast notifications
- * - Quản lý authentication
- */
+const API='';let ws=null;
+function getToken(){return localStorage.getItem('token')}
+function getUser(){try{return JSON.parse(localStorage.getItem('user'))}catch{return null}}
+function checkAuth(){if(!getToken()){window.location.href='/';return false}return true}
+function logout(){localStorage.clear();window.location.href='/'}
+function setupUser(){const u=getUser();if(u){const el=document.getElementById('userName');if(el)el.textContent=u.full_name||u.username}}
 
-const API_BASE = '';
-let wsConnection = null;
-
-// ============================================
-// AUTHENTICATION
-// ============================================
-function getToken() { return localStorage.getItem('token'); }
-function getUser() {
-    try { return JSON.parse(localStorage.getItem('user')); }
-    catch { return null; }
+async function apiCall(url,method='GET',body=null){
+    const o={method,headers:{'Content-Type':'application/json'}};
+    if(body)o.body=JSON.stringify(body);
+    const r=await fetch(API+url,o);
+    if(r.status===401){logout();return null}
+    const ct=r.headers.get('content-type');
+    if(ct&&ct.includes('application/json')){const d=await r.json();if(!r.ok)throw new Error(d.detail||'Lỗi');return d}
+    if(!r.ok)throw new Error('Lỗi');return r;
 }
 
-function checkAuth() {
-    if (!getToken()) {
-        window.location.href = '/';
-        return false;
-    }
-    return true;
+function showToast(msg,type='info'){
+    let c=document.querySelector('.toasts');
+    if(!c){c=document.createElement('div');c.className='toasts';document.body.appendChild(c)}
+    const t=document.createElement('div');t.className='toast '+type;
+    const icons={success:'✅',error:'❌',warning:'⚠️',info:'ℹ️'};
+    t.innerHTML=`<span>${icons[type]||'ℹ️'}</span><span class="t-msg">${msg}</span>`;
+    c.appendChild(t);
+    setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(80px)';setTimeout(()=>t.remove(),300)},4000);
 }
 
-function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/';
-}
-
-function setupUserInfo() {
-    const user = getUser();
-    if (!user) return;
-    const nameEl = document.getElementById('userName');
-    if (nameEl) nameEl.textContent = user.full_name || user.username;
-}
-
-// ============================================
-// API HELPER
-// ============================================
-async function apiCall(url, method = 'GET', body = null) {
-    const opts = {
-        method,
-        headers: { 'Content-Type': 'application/json' }
+function connectWS(){
+    if(ws)return;
+    ws=new WebSocket(`ws://${location.host}/ws`);
+    ws.onopen=()=>{const d=document.getElementById('dot');if(d)d.style.background='var(--green)'};
+    ws.onmessage=(e)=>{
+        const d=JSON.parse(e.data);
+        if(d.type==='attendance'){showToast(`${d.student_name} (${d.student_code}) đã điểm danh lúc ${d.time}`,'success');addFeed(d);refreshStats()}
     };
-    if (body) opts.body = JSON.stringify(body);
-    
-    const res = await fetch(API_BASE + url, opts);
-    if (res.status === 401) { logout(); return null; }
-    
-    // Check if response is JSON
-    const contentType = res.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Lỗi server');
-        return data;
-    }
-    
-    if (!res.ok) throw new Error('Lỗi server');
-    return res;
+    ws.onclose=()=>{ws=null;const d=document.getElementById('dot');if(d)d.style.background='var(--red)';setTimeout(connectWS,3000)};
+    ws.onerror=()=>{ws=null};
+    setInterval(()=>{if(ws&&ws.readyState===1)ws.send('ping')},30000);
 }
 
-// ============================================
-// TOAST NOTIFICATIONS
-// ============================================
-function showToast(message, type = 'info') {
-    let container = document.querySelector('.toast-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.className = 'toast-container';
-        document.body.appendChild(container);
-    }
-
-    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.innerHTML = `
-        <span class="toast-icon">${icons[type] || 'ℹ️'}</span>
-        <span class="toast-message">${message}</span>
-    `;
-    container.appendChild(toast);
-
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(100px)';
-        setTimeout(() => toast.remove(), 300);
-    }, 4000);
+function addFeed(d){
+    const f=document.getElementById('feed');if(!f)return;
+    const ini=d.student_name.split(' ').map(w=>w[0]).join('').slice(-2);
+    const el=document.createElement('div');el.className='feed-item';
+    el.innerHTML=`<div class="feed-av">${ini}</div><div class="feed-info"><div class="feed-name">${d.student_name}</div><div class="feed-sub">${d.student_code} • ${(d.confidence*100).toFixed(0)}%</div></div><span class="feed-time">${d.time}</span>`;
+    f.insertBefore(el,f.firstChild);
+    const empty=f.querySelector('.empty');if(empty)empty.remove();
 }
 
-// ============================================
-// WEBSOCKET
-// ============================================
-function connectWebSocket() {
-    if (wsConnection) return;
-    
-    const wsUrl = `ws://${window.location.host}/ws`;
-    wsConnection = new WebSocket(wsUrl);
-
-    wsConnection.onopen = () => {
-        console.log('📡 WebSocket connected');
-        const dot = document.getElementById('realtimeDot');
-        if (dot) dot.style.background = 'var(--accent-green)';
-    };
-
-    wsConnection.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'attendance') {
-            showToast(`${data.student_name} (${data.student_code}) đã điểm danh lúc ${data.time}`, 'success');
-            addFeedItem(data);
-            refreshDashboardStats();
-        }
-    };
-
-    wsConnection.onclose = () => {
-        console.log('📡 WebSocket disconnected');
-        wsConnection = null;
-        const dot = document.getElementById('realtimeDot');
-        if (dot) dot.style.background = 'var(--accent-red)';
-        // Reconnect after 3s
-        setTimeout(connectWebSocket, 3000);
-    };
-
-    wsConnection.onerror = () => { wsConnection = null; };
-
-    // Ping keep-alive
-    setInterval(() => {
-        if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
-            wsConnection.send('ping');
-        }
-    }, 30000);
+async function refreshStats(){
+    try{
+        const s=await apiCall('/api/dashboard/stats');if(!s)return;
+        const el=id=>document.getElementById(id);
+        if(el('sStudents'))el('sStudents').textContent=s.total_students||0;
+        if(el('sClasses'))el('sClasses').textContent=s.total_classes||0;
+        if(el('sToday'))el('sToday').textContent=s.today_attendance||0;
+        if(el('sFaces'))el('sFaces').textContent=s.face_registered||0;
+    }catch(e){}
 }
 
-function addFeedItem(data) {
-    const feed = document.getElementById('attendanceFeed');
-    if (!feed) return;
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+function fmtDate(s){if(!s)return'';return new Date(s).toLocaleDateString('vi-VN')}
+function fmtDateTime(s){if(!s)return'';return new Date(s).toLocaleString('vi-VN')}
+function statusBadge(s){const m={present:'<span class="badge badge-ok">Có mặt</span>',late:'<span class="badge badge-warn">Trễ</span>',absent:'<span class="badge badge-err">Vắng</span>'};return m[s]||s}
 
-    const initials = data.student_name.split(' ').map(w => w[0]).join('').slice(-2);
-    const item = document.createElement('div');
-    item.className = 'feed-item';
-    item.innerHTML = `
-        <div class="feed-avatar">${initials}</div>
-        <div class="feed-info">
-            <div class="feed-name">${data.student_name}</div>
-            <div class="feed-detail">${data.student_code} • Độ tin cậy: ${(data.confidence * 100).toFixed(0)}%</div>
-        </div>
-        <span class="feed-time">${data.time}</span>
-    `;
-
-    feed.insertBefore(item, feed.firstChild);
-    
-    // Remove empty state
-    const empty = feed.querySelector('.empty-state');
-    if (empty) empty.remove();
-}
-
-async function refreshDashboardStats() {
-    try {
-        const stats = await apiCall('/api/dashboard/stats');
-        if (!stats) return;
-        const el = (id) => document.getElementById(id);
-        if (el('statStudents')) el('statStudents').textContent = stats.total_students || 0;
-        if (el('statClasses')) el('statClasses').textContent = stats.total_classes || 0;
-        if (el('statToday')) el('statToday').textContent = stats.today_attendance || 0;
-        if (el('statFaces')) el('statFaces').textContent = stats.face_registered || 0;
-    } catch (e) { /* silent */ }
-}
-
-// ============================================
-// MODAL HELPERS
-// ============================================
-function openModal(id) {
-    document.getElementById(id).classList.add('active');
-}
-
-function closeModal(id) {
-    document.getElementById(id).classList.remove('active');
-}
-
-// ============================================
-// SIDEBAR ACTIVE STATE
-// ============================================
-function setActiveNav() {
-    const path = window.location.pathname;
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.remove('active');
-        if (item.getAttribute('href') === path) {
-            item.classList.add('active');
-        }
-    });
-}
-
-// ============================================
-// FORMAT HELPERS
-// ============================================
-function formatDate(dateStr) {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('vi-VN');
-}
-
-function formatDateTime(dateStr) {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    return d.toLocaleString('vi-VN');
-}
-
-function statusBadge(status) {
-    const map = {
-        'present': '<span class="badge badge-success">Có mặt</span>',
-        'late': '<span class="badge badge-warning">Trễ</span>',
-        'absent': '<span class="badge badge-danger">Vắng</span>'
-    };
-    return map[status] || status;
-}
-
-// ============================================
-// INIT
-// ============================================
-document.addEventListener('DOMContentLoaded', () => {
-    if (window.location.pathname !== '/' && window.location.pathname !== '/index.html') {
-        if (!checkAuth()) return;
-        setupUserInfo();
-        setActiveNav();
-        connectWebSocket();
+document.addEventListener('DOMContentLoaded',()=>{
+    if(location.pathname!=='/'&&location.pathname!=='/index.html'){
+        if(!checkAuth())return;setupUser();
+        document.querySelectorAll('.nav-link').forEach(n=>{n.classList.toggle('active',n.getAttribute('href')===location.pathname)});
+        connectWS();
     }
 });

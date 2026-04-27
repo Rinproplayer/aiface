@@ -1,187 +1,49 @@
 <!DOCTYPE html>
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Điểm danh - AI Face Attendance</title>
-    <link rel="stylesheet" href="/web/css/style.css">
-</head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Điểm danh - AI Face Attendance</title><link rel="stylesheet" href="/web/css/style.css"></head>
 <body>
-    <div class="app-layout">
-        <aside class="sidebar">
-            <div class="sidebar-brand"><span class="icon">🎓</span><h2>AI Attendance</h2></div>
-            <nav class="sidebar-nav">
-                <a href="/dashboard" class="nav-item"><span class="nav-icon">📊</span> Tổng quan</a>
-                <a href="/students-page" class="nav-item"><span class="nav-icon">👥</span> Sinh viên</a>
-                <a href="/classes-page" class="nav-item"><span class="nav-icon">📚</span> Lớp học</a>
-                <a href="/attendance-page" class="nav-item active"><span class="nav-icon">✅</span> Điểm danh</a>
-            </nav>
-            <div class="sidebar-footer">
-                <div class="user-info"><div class="user-avatar">👤</div><div><div class="user-name" id="userName">Giảng viên</div><div class="user-role">Quản trị viên</div></div></div>
-                <button class="btn btn-outline btn-sm" onclick="logout()" style="width:100%;justify-content:center;">🚪 Đăng xuất</button>
+    <div class="animated-bg"><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
+    <div class="app">
+        <div id="sidebar-root"></div>
+        <main class="main">
+            <div class="page-top">
+                <div><h1>Điểm danh</h1><p class="desc">Xem và quản lý điểm danh sinh viên</p></div>
+                <div style="display:flex;align-items:center;gap:8px"><span class="dot" id="dot"></span><span style="font-size:12px;color:var(--text-dim)">Realtime</span></div>
             </div>
-        </aside>
-
-        <main class="main-content">
-            <div class="page-header">
-                <div><h1>✅ Điểm danh</h1><p>Xem và quản lý điểm danh sinh viên</p></div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <span class="realtime-dot" id="realtimeDot"></span>
-                    <span style="font-size:13px;color:var(--text-secondary);">Realtime</span>
-                </div>
-            </div>
-
-            <!-- Filter Bar -->
             <div class="panel">
-                <div class="filter-bar">
-                    <select id="filterClass" class="form-control" onchange="loadAttendance()">
-                        <option value="">-- Chọn lớp --</option>
-                    </select>
-                    <input type="date" id="filterDate" class="form-control" onchange="loadAttendance()">
-                    <button class="btn btn-primary" onclick="loadAttendance()">🔍 Xem</button>
-                    <button class="btn btn-success" onclick="exportExcel()">📥 Xuất Excel</button>
-                    <button class="btn btn-outline" onclick="exportSummary()">📊 Tổng hợp Excel</button>
+                <div class="filters">
+                    <select id="fClass" class="fc" onchange="loadAtt()"><option value="">-- Chọn lớp --</option></select>
+                    <input type="date" id="fDate" class="fc" onchange="loadAtt()">
+                    <button class="btn btn-primary" onclick="loadAtt()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Xem</button>
+                    <button class="btn btn-green" onclick="exportXls()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Xuất Excel</button>
+                    <button class="btn btn-ghost" onclick="exportSum()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Tổng hợp</button>
                 </div>
             </div>
-
-            <!-- Attendance Table -->
             <div class="panel">
-                <div class="panel-header">
-                    <h2 id="attendanceTitle">Danh sách điểm danh</h2>
-                    <span id="attendanceCount" class="badge badge-info">0 sinh viên</span>
-                </div>
-                <div class="table-container">
-                    <table>
-                        <thead><tr><th>STT</th><th>Mã SV</th><th>Họ và tên</th><th>Thời gian</th><th>Trạng thái</th><th>Độ tin cậy</th></tr></thead>
-                        <tbody id="attendanceTable">
-                            <tr><td colspan="6" class="empty-state"><div class="icon">📋</div><p>Chọn lớp và ngày để xem điểm danh</p></td></tr>
-                        </tbody>
-                    </table>
-                </div>
+                <div class="panel-head"><h2>Danh sách điểm danh</h2><span id="attCount" class="badge badge-info">0 SV</span></div>
+                <div class="tbl-wrap"><table><thead><tr><th>STT</th><th>Mã SV</th><th>Họ và tên</th><th>Thời gian</th><th>Trạng thái</th><th>Độ tin cậy</th></tr></thead>
+                <tbody id="attTbl"><tr><td colspan="6" class="empty"><p>Chọn lớp và ngày để xem</p></td></tr></tbody></table></div>
             </div>
-
-            <!-- Summary Panel -->
-            <div class="panel" id="summaryPanel" style="display:none;">
-                <div class="panel-header"><h2>📊 Thống kê tổng hợp</h2></div>
-                <div class="table-container">
-                    <table>
-                        <thead><tr><th>STT</th><th>Mã SV</th><th>Họ tên</th><th>Có mặt</th><th>Trễ</th><th>Tổng buổi</th><th>Tỷ lệ</th></tr></thead>
-                        <tbody id="summaryTable"></tbody>
-                    </table>
-                </div>
+            <div class="panel" id="sumPanel" style="display:none">
+                <div class="panel-head"><h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Thống kê tổng hợp</h2></div>
+                <div class="tbl-wrap"><table><thead><tr><th>STT</th><th>Mã SV</th><th>Họ tên</th><th>Có mặt</th><th>Trễ</th><th>Tổng buổi</th><th>Tỷ lệ</th></tr></thead><tbody id="sumTbl"></tbody></table></div>
             </div>
-
-            <!-- Realtime Feed -->
             <div class="panel">
-                <div class="panel-header"><h2>🔴 Điểm danh Realtime</h2><span class="realtime-dot"></span></div>
-                <div id="attendanceFeed">
-                    <div class="empty-state"><div class="icon">📡</div><p>Đang chờ...<br><small>Chạy <code>python main.py</code></small></p></div>
-                </div>
+                <div class="panel-head"><h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49"/><path d="M7.76 16.24a6 6 0 0 1 0-8.49"/></svg>Realtime</h2><span class="dot"></span></div>
+                <div id="feed"><div class="empty"><p>Đang chờ dữ liệu...</p></div></div>
             </div>
         </main>
     </div>
-
-    <script src="/web/js/app.js"></script>
+    <script src="/web/js/app.js"></script><script src="/web/js/sidebar.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('filterDate').value = new Date().toISOString().split('T')[0];
-            loadClassFilter();
-        });
-
-        async function loadClassFilter() {
-            try {
-                const classes = await apiCall('/api/classes');
-                const sel = document.getElementById('filterClass');
-                classes.forEach(c => {
-                    const o = document.createElement('option');
-                    o.value = c.id;
-                    o.textContent = `${c.class_code} - ${c.class_name}`;
-                    sel.appendChild(o);
-                });
-            } catch (e) {}
-        }
-
-        async function loadAttendance() {
-            const classId = document.getElementById('filterClass').value;
-            const date = document.getElementById('filterDate').value;
-            if (!classId) { showToast('Vui lòng chọn lớp!', 'warning'); return; }
-
-            try {
-                let url = `/api/attendance?class_id=${classId}`;
-                if (date) url += `&date=${date}`;
-                const data = await apiCall(url);
-                const tbody = document.getElementById('attendanceTable');
-                document.getElementById('attendanceCount').textContent = `${data.length} sinh viên`;
-
-                if (!data.length) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><p>Không có dữ liệu điểm danh</p></td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = data.map((a, i) => `
-                    <tr>
-                        <td>${i+1}</td>
-                        <td><strong>${a.student_code}</strong></td>
-                        <td>${a.full_name}</td>
-                        <td>${formatDateTime(a.check_in_time)}</td>
-                        <td>${statusBadge(a.status)}</td>
-                        <td><span class="badge badge-info">${(a.confidence * 100).toFixed(0)}%</span></td>
-                    </tr>`).join('');
-
-                // Load summary
-                loadSummary(classId);
-            } catch (e) { showToast('Lỗi tải dữ liệu', 'error'); }
-        }
-
-        async function loadSummary(classId) {
-            try {
-                const data = await apiCall(`/api/attendance/summary?class_id=${classId}`);
-                if (!data.length) return;
-                document.getElementById('summaryPanel').style.display = 'block';
-                document.getElementById('summaryTable').innerHTML = data.map((s, i) => {
-                    const total = s.total_sessions || 0;
-                    const attended = s.total_attended || 0;
-                    const rate = total > 0 ? ((attended / total) * 100).toFixed(0) : 0;
-                    const rateClass = rate >= 80 ? 'badge-success' : rate >= 50 ? 'badge-warning' : 'badge-danger';
-                    return `<tr><td>${i+1}</td><td>${s.student_code}</td><td>${s.full_name}</td>
-                        <td>${s.present_count || 0}</td><td>${s.late_count || 0}</td><td>${total}</td>
-                        <td><span class="badge ${rateClass}">${rate}%</span></td></tr>`;
-                }).join('');
-            } catch (e) {}
-        }
-
-        async function exportExcel() {
-            const classId = document.getElementById('filterClass').value;
-            const date = document.getElementById('filterDate').value;
-            if (!classId) { showToast('Chọn lớp trước!', 'warning'); return; }
-            try {
-                let url = `/api/export/attendance?class_id=${classId}`;
-                if (date) url += `&date=${date}`;
-                const res = await fetch(url);
-                if (!res.ok) { const err = await res.json(); throw new Error(err.detail); }
-                const blob = await res.blob();
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `diemdanh_${date || 'all'}.xlsx`;
-                a.click();
-                showToast('Xuất Excel thành công!', 'success');
-            } catch (e) { showToast(e.message || 'Lỗi xuất Excel', 'error'); }
-        }
-
-        async function exportSummary() {
-            const classId = document.getElementById('filterClass').value;
-            if (!classId) { showToast('Chọn lớp trước!', 'warning'); return; }
-            try {
-                const res = await fetch(`/api/export/summary?class_id=${classId}`);
-                if (!res.ok) { const err = await res.json(); throw new Error(err.detail); }
-                const blob = await res.blob();
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `tonghop.xlsx`;
-                a.click();
-                showToast('Xuất tổng hợp thành công!', 'success');
-            } catch (e) { showToast(e.message || 'Lỗi', 'error'); }
-        }
+        document.addEventListener('DOMContentLoaded',()=>{document.getElementById('fDate').value=new Date().toISOString().split('T')[0];loadCls()});
+        async function loadCls(){try{const c=await apiCall('/api/classes');const s=document.getElementById('fClass');c.forEach(x=>{const o=document.createElement('option');o.value=x.id;o.textContent=`${x.class_code} - ${x.class_name}`;s.appendChild(o)})}catch(e){}}
+        async function loadAtt(){const cid=document.getElementById('fClass').value,dt=document.getElementById('fDate').value;if(!cid){showToast('Chọn lớp!','warning');return}
+            try{let url=`/api/attendance?class_id=${cid}`;if(dt)url+=`&date=${dt}`;const d=await apiCall(url);document.getElementById('attCount').textContent=`${d.length} SV`;const t=document.getElementById('attTbl');if(!d.length){t.innerHTML='<tr><td colspan="6" class="empty"><p>Không có dữ liệu</p></td></tr>';return}
+                t.innerHTML=d.map((a,i)=>`<tr><td>${i+1}</td><td><strong>${a.student_code}</strong></td><td>${a.full_name}</td><td>${fmtDateTime(a.check_in_time)}</td><td>${statusBadge(a.status)}</td><td><span class="badge badge-info">${(a.confidence*100).toFixed(0)}%</span></td></tr>`).join('');loadSum(cid)}catch(e){showToast('Lỗi','error')}}
+        async function loadSum(cid){try{const d=await apiCall(`/api/attendance/summary?class_id=${cid}`);if(!d.length)return;document.getElementById('sumPanel').style.display='block';document.getElementById('sumTbl').innerHTML=d.map((s,i)=>{const tot=s.total_sessions||0,att=s.total_attended||0,rate=tot>0?((att/tot)*100).toFixed(0):0;const cls=rate>=80?'badge-ok':rate>=50?'badge-warn':'badge-err';return`<tr><td>${i+1}</td><td>${s.student_code}</td><td>${s.full_name}</td><td>${s.present_count||0}</td><td>${s.late_count||0}</td><td>${tot}</td><td><span class="badge ${cls}">${rate}%</span></td></tr>`}).join('')}catch(e){}}
+        async function exportXls(){const cid=document.getElementById('fClass').value,dt=document.getElementById('fDate').value;if(!cid){showToast('Chọn lớp!','warning');return}try{let url=`/api/export/attendance?class_id=${cid}`;if(dt)url+=`&date=${dt}`;const r=await fetch(url);if(!r.ok){const e=await r.json();throw new Error(e.detail)}const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`diemdanh_${dt||'all'}.xlsx`;a.click();showToast('Xuất thành công!','success')}catch(e){showToast(e.message||'Lỗi','error')}}
+        async function exportSum(){const cid=document.getElementById('fClass').value;if(!cid){showToast('Chọn lớp!','warning');return}try{const r=await fetch(`/api/export/summary?class_id=${cid}`);if(!r.ok){const e=await r.json();throw new Error(e.detail)}const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tonghop.xlsx';a.click();showToast('Xuất thành công!','success')}catch(e){showToast(e.message||'Lỗi','error')}}
     </script>
 </body>
 </html>
