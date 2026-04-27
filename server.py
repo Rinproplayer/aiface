@@ -50,9 +50,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Tắt cache trình duyệt (dev mode)
+# Tắt cache trình duyệt (dev mode) - bỏ qua WebSocket
 class NoCacheMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        # Bỏ qua WebSocket requests (không thể thêm headers)
+        if request.headers.get("upgrade", "").lower() == "websocket":
+            return await call_next(request)
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"

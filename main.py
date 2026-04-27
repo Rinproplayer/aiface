@@ -82,7 +82,7 @@ def run_attendance(class_id=None):
     process_every_n = 2       # Xử lý mỗi 2 frame (nhanh hơn)
 
     # Hệ thống xác nhận: cần nhận đúng N lần liên tiếp
-    confirm_threshold = 3     # Cần 3 lần nhận đúng mới ghi
+    confirm_threshold = 2     # Cần 2 lần nhận đúng mới ghi (giảm từ 3)
     recognition_buffer = {}   # {student_code: [confidence, confidence, ...]}
 
     last_results = []         # Kết quả gần nhất để vẽ
