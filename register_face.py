@@ -1,55 +1,73 @@
 """
-Đăng ký khuôn mặt sinh viên
-==============================
-Chụp ảnh khuôn mặt sinh viên qua webcam và lưu vào dataset.
-Sử dụng: python register_face.py
+Đăng ký khuôn mặt sinh viên - PHIÊN BẢN NÂNG CẤP
+=====================================================
+Cải thiện:
+- Dùng Haar Cascade (nhanh, ổn định) để phát hiện mặt khi chụp
+- Tiền xử lý CLAHE cho điều kiện ngược sáng
+- Tự động chụp khi phát hiện khuôn mặt ổn định
+- Hướng dẫn quay nhiều góc
 """
 
 import os
 import cv2
+import time
 from config import DATASET_DIR, NUM_PHOTOS_PER_STUDENT, CAMERA_INDEX
 from database import add_student, get_student_by_code, update_face_registered
+from face_engine import preprocess_frame, detect_faces_haar
 
-try:
-    import face_recognition
-    FACE_LIB = True
-except ImportError:
-    FACE_LIB = False
+# Haar cascade cho phát hiện nhanh
+HAAR_FACE = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+
+
+def detect_face_for_register(frame):
+    """Phát hiện khuôn mặt bằng Haar Cascade (nhanh hơn face_recognition)"""
+    # Tiền xử lý
+    enhanced = preprocess_frame(frame)
+    gray = cv2.cvtColor(enhanced, cv2.COLOR_BGR2GRAY)
+    gray = cv2.equalizeHist(gray)
+
+    faces = HAAR_FACE.detectMultiScale(
+        gray,
+        scaleFactor=1.05,      # Giảm scale factor = phát hiện tốt hơn
+        minNeighbors=3,        # Giảm = dễ phát hiện hơn
+        minSize=(80, 80),
+        flags=cv2.CASCADE_SCALE_IMAGE
+    )
+    return faces
 
 
 def register_face():
     """Đăng ký khuôn mặt sinh viên mới qua webcam"""
     print("=" * 50)
-    print("📸 ĐĂNG KÝ KHUÔN MẶT SINH VIÊN")
+    print("DANG KY KHUON MAT SINH VIEN")
     print("=" * 50)
 
     # Nhập thông tin sinh viên
-    student_code = input("\n📝 Nhập mã sinh viên (VD: SV001): ").strip()
+    student_code = input("\nNhap ma sinh vien (VD: SV001): ").strip()
     if not student_code:
-        print("❌ Mã sinh viên không được để trống!")
+        print("Ma sinh vien khong duoc de trong!")
         return
 
-    full_name = input("📝 Nhập họ tên sinh viên: ").strip()
+    full_name = input("Nhap ho ten sinh vien: ").strip()
     if not full_name:
-        print("❌ Họ tên không được để trống!")
+        print("Ho ten khong duoc de trong!")
         return
 
-    email = input("📝 Nhập email (bỏ trống nếu không có): ").strip()
-    phone = input("📝 Nhập SĐT (bỏ trống nếu không có): ").strip()
+    email = input("Nhap email (bo trong neu khong co): ").strip()
+    phone = input("Nhap SDT (bo trong neu khong co): ").strip()
 
     # Kiểm tra sinh viên đã tồn tại chưa
     existing = get_student_by_code(student_code)
     if existing:
-        print(f"⚠️ Sinh viên {student_code} đã tồn tại: {existing['full_name']}")
-        choice = input("Bạn có muốn đăng ký lại khuôn mặt? (y/n): ").strip().lower()
+        print(f"Sinh vien {student_code} da ton tai: {existing['full_name']}")
+        choice = input("Ban co muon dang ky lai khuon mat? (y/n): ").strip().lower()
         if choice != "y":
             return
         student_id = existing["id"]
     else:
-        # Thêm sinh viên vào database
         student_id = add_student(student_code, full_name, email, phone)
         if not student_id:
-            print("❌ Không thể thêm sinh viên vào database!")
+            print("Khong the them sinh vien vao database!")
             return
 
     # Tạo thư mục lưu ảnh
@@ -58,72 +76,122 @@ def register_face():
     os.makedirs(student_dir, exist_ok=True)
 
     # Mở webcam
-    print(f"\n📷 Mở webcam để chụp {NUM_PHOTOS_PER_STUDENT} ảnh...")
-    print("   Nhấn SPACE để chụp | Nhấn Q để hủy")
-    print("   Hãy quay mặt ở nhiều góc độ khác nhau để tăng độ chính xác!")
+    num_photos = NUM_PHOTOS_PER_STUDENT
+    print(f"\nMo webcam de chup {num_photos} anh...")
+    print("   Nhan SPACE de chup | Nhan Q de huy")
+    print("   Hay quay mat o nhieu goc do khac nhau!")
+    print("   Goc doc: Thang, nghieng trai, nghieng phai")
 
     cap = cv2.VideoCapture(CAMERA_INDEX)
     if not cap.isOpened():
-        print("❌ Không thể mở webcam!")
+        print("Khong the mo webcam!")
         return
 
-    photo_count = 0
+    # Tăng độ phân giải camera
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-    while photo_count < NUM_PHOTOS_PER_STUDENT:
+    photo_count = 0
+    no_face_count = 0
+    last_capture_time = 0
+
+    # Hướng dẫn cho từng ảnh
+    guides = [
+        "Nhin thang vao camera",
+        "Nghieng dau sang TRAI",
+        "Nghieng dau sang PHAI",
+        "Nhin LEN tren",
+        "Nhin XUONG duoi",
+        "Cuoi",
+        "Mat binh thuong",
+        "Quay nhe sang trai",
+        "Quay nhe sang phai",
+        "Nhin thang - binh thuong",
+    ]
+
+    while photo_count < num_photos:
         ret, frame = cap.read()
         if not ret:
             break
 
-        # Hiển thị hướng dẫn trên frame
-        display = frame.copy()
-        cv2.putText(display, f"Anh {photo_count + 1}/{NUM_PHOTOS_PER_STUDENT} - SPACE: Chup | Q: Huy",
-                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        cv2.putText(display, f"SV: {student_code} - {full_name}",
-                    (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+        # Phát hiện khuôn mặt
+        faces = detect_face_for_register(frame)
+        has_face = len(faces) > 0
 
-        # Phát hiện khuôn mặt và vẽ khung
-        if FACE_LIB:
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            face_locs = face_recognition.face_locations(rgb)
-            for (top, right, bottom, left) in face_locs:
-                cv2.rectangle(display, (left, top), (right, bottom), (0, 255, 0), 2)
-            if not face_locs:
-                cv2.putText(display, "Khong thay khuon mat!", (10, 90),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+        # Hiển thị
+        display = frame.copy()
+
+        # Vẽ khung khuôn mặt
+        if has_face:
+            for (x, y, w, h) in faces:
+                cv2.rectangle(display, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            no_face_count = 0
+        else:
+            no_face_count += 1
+
+        # Hiển thị hướng dẫn
+        guide_text = guides[photo_count] if photo_count < len(guides) else "Nhin thang"
+        cv2.putText(display, f"Anh {photo_count+1}/{num_photos} - SPACE: Chup | Q: Huy",
+                    (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        cv2.putText(display, f"SV: {student_code} - {full_name}",
+                    (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
+        cv2.putText(display, f"Huong dan: {guide_text}",
+                    (10, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 200, 255), 2)
+
+        if has_face:
+            cv2.putText(display, "DA PHAT HIEN KHUON MAT - Nhan SPACE",
+                        (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        else:
+            cv2.putText(display, "Dang tim khuon mat...",
+                        (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
         cv2.imshow("Dang ky khuon mat", display)
 
         key = cv2.waitKey(1) & 0xFF
 
         if key == ord('q'):
-            print("⚠️ Đã hủy đăng ký!")
+            print("Da huy dang ky!")
             break
         elif key == ord(' '):  # SPACE
-            # Kiểm tra có khuôn mặt không
-            if FACE_LIB:
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                face_locs = face_recognition.face_locations(rgb)
-                if not face_locs:
-                    print("  ❌ Không phát hiện khuôn mặt! Hãy đưa mặt vào camera.")
-                    continue
+            if not has_face:
+                print("  Khong phat hien khuon mat! Dua mat vao camera.")
+                continue
+
+            # Đợi ít nhất 0.3s giữa các lần chụp
+            now = time.time()
+            if now - last_capture_time < 0.3:
+                continue
 
             photo_count += 1
             photo_path = os.path.join(student_dir, f"{photo_count}.jpg")
+
+            # Lưu ảnh gốc (không có khung vẽ)
             cv2.imwrite(photo_path, frame)
-            print(f"  ✅ Đã chụp ảnh {photo_count}/{NUM_PHOTOS_PER_STUDENT}")
+
+            # Lưu thêm ảnh đã enhance (tăng dữ liệu train)
+            enhanced = preprocess_frame(frame)
+            enhanced_path = os.path.join(student_dir, f"{photo_count}_enhanced.jpg")
+            cv2.imwrite(enhanced_path, enhanced)
+
+            last_capture_time = now
+            print(f"  Da chup anh {photo_count}/{num_photos} ({guide_text})")
 
     cap.release()
     cv2.destroyAllWindows()
 
-    if photo_count >= NUM_PHOTOS_PER_STUDENT:
-        # Cập nhật trạng thái đăng ký khuôn mặt
+    if photo_count >= num_photos:
         first_photo = os.path.join(student_dir, "1.jpg")
         update_face_registered(student_id, True, first_photo)
-        print(f"\n🎉 Đăng ký khuôn mặt thành công cho {full_name}!")
-        print(f"   Đã lưu {photo_count} ảnh vào: {student_dir}")
-        print(f"   ➡️  Tiếp theo: chạy 'python train_model.py' để train model")
+        print(f"\nDang ky khuon mat thanh cong cho {full_name}!")
+        print(f"   Da luu {photo_count * 2} anh vao: {student_dir}")
+        print(f"   Tiep theo: chay 'python train_model.py'")
     else:
-        print(f"\n⚠️ Chỉ chụp được {photo_count}/{NUM_PHOTOS_PER_STUDENT} ảnh.")
+        print(f"\nChi chup duoc {photo_count}/{num_photos} anh.")
+        if photo_count > 0:
+            first_photo = os.path.join(student_dir, "1.jpg")
+            update_face_registered(student_id, True, first_photo)
+            print("Van co the train voi so anh hien tai.")
+            print("Chay: python train_model.py")
 
 
 if __name__ == "__main__":

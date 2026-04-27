@@ -1,8 +1,8 @@
 """
-Train Model - Mã hóa khuôn mặt
-==================================
-Đọc ảnh từ dataset, tạo face encoding cho mỗi sinh viên.
-Sử dụng: python train_model.py
+Train Model - Ma hoa khuon mat (NANG CAP)
+============================================
+Doc anh tu dataset, tien xu ly, tao face encoding.
+Su dung: python train_model.py
 """
 
 from face_engine import FaceEngine
@@ -10,8 +10,13 @@ from face_engine import FaceEngine
 
 def main():
     print("=" * 50)
-    print("🧠 TRAIN MODEL NHẬN DIỆN KHUÔN MẶT")
+    print("TRAIN MODEL NHAN DIEN KHUON MAT")
     print("=" * 50)
+    print()
+    print("Cai thien:")
+    print("  - Tien xu ly anh (CLAHE can bang sang)")
+    print("  - Upsample x2 de phat hien mat nho")
+    print("  - Num_jitters=3 de encode chinh xac hon")
     print()
 
     engine = FaceEngine()
@@ -19,13 +24,13 @@ def main():
 
     if success:
         print("\n" + "=" * 50)
-        print("✅ TRAIN HOÀN TẤT!")
+        print("TRAIN HOAN TAT!")
         print("=" * 50)
-        print(f"📊 Tổng số encoding: {len(engine.known_encodings)}")
-        print(f"👥 Số sinh viên: {len(set(engine.known_student_codes))}")
-        print("\n➡️  Tiếp theo: chạy 'python main.py' để bắt đầu điểm danh")
+        print(f"Tong so encoding: {len(engine.known_encodings)}")
+        print(f"So sinh vien: {len(set(engine.known_student_codes))}")
+        print("\nTiep theo: chay 'python main.py' de bat dau diem danh")
     else:
-        print("\n❌ Train thất bại! Kiểm tra lại thư mục dataset/")
+        print("\nTrain that bai! Kiem tra lai thu muc dataset/")
 
 
 if __name__ == "__main__":

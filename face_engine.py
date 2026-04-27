@@ -1,10 +1,11 @@
 """
-Module Nhận Diện Khuôn Mặt
-=============================
-Sử dụng thư viện face_recognition (dựa trên dlib) để:
-- Phát hiện khuôn mặt trong ảnh/video
-- Mã hóa (encode) khuôn mặt thành vector 128 chiều
-- So khớp khuôn mặt với database đã đăng ký
+Module Nhận Diện Khuôn Mặt - PHIÊN BẢN NÂNG CẤP
+====================================================
+Cải thiện:
+- Tiền xử lý ảnh (cân bằng sáng, tăng tương phản)
+- Dùng cả HOG + Haar Cascade để phát hiện mặt
+- Tăng số lần jitter khi encode
+- Xử lý ảnh ở độ phân giải cao hơn
 """
 
 import os
@@ -17,35 +18,91 @@ try:
     FACE_LIB_AVAILABLE = True
 except ImportError:
     FACE_LIB_AVAILABLE = False
-    print("⚠️ Thư viện face_recognition chưa được cài đặt.")
-    print("   Chạy: pip install face-recognition")
+    print("Chua cai face_recognition. Chay: pip install face-recognition --no-deps")
 
 from config import (
     DATASET_DIR, ENCODINGS_FILE, ENCODINGS_DIR,
-    FACE_RECOGNITION_TOLERANCE, FACE_RECOGNITION_MODEL
+    FACE_RECOGNITION_TOLERANCE, FACE_RECOGNITION_MODEL,
+    NUM_JITTERS, FACE_UPSCALE
 )
+
+# Tải Haar Cascade cho phát hiện khuôn mặt dự phòng
+HAAR_CASCADE = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+
+
+def preprocess_frame(frame):
+    """
+    Tiền xử lý ảnh để cải thiện nhận diện:
+    - Cân bằng histogram (tăng tương phản)
+    - Điều chỉnh sáng cho ảnh ngược sáng
+    """
+    # Chuyển sang LAB color space
+    lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+
+    # CLAHE - Cân bằng histogram thích ứng (xử lý ngược sáng rất tốt)
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    l = clahe.apply(l)
+
+    # Ghép lại và chuyển về BGR
+    lab = cv2.merge([l, a, b])
+    enhanced = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+
+    return enhanced
+
+
+def detect_faces_haar(frame):
+    """
+    Phát hiện khuôn mặt bằng Haar Cascade (nhanh, ổn định).
+    Dùng làm phương pháp dự phòng khi face_recognition không tìm thấy.
+    
+    Returns:
+        List of (top, right, bottom, left) giống format face_recognition
+    """
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray = cv2.equalizeHist(gray)
+
+    faces = HAAR_CASCADE.detectMultiScale(
+        gray,
+        scaleFactor=1.1,
+        minNeighbors=5,
+        minSize=(60, 60),
+        flags=cv2.CASCADE_SCALE_IMAGE
+    )
+
+    # Chuyển format (x, y, w, h) → (top, right, bottom, left)
+    locations = []
+    for (x, y, w, h) in faces:
+        locations.append((y, x + w, y + h, x))
+
+    return locations
 
 
 class FaceEngine:
     """
-    Engine nhận diện khuôn mặt.
+    Engine nhận diện khuôn mặt - Phiên bản nâng cấp.
     
-    Cách sử dụng:
-        engine = FaceEngine()
-        engine.load_encodings()         # Tải dữ liệu đã train
-        name, conf = engine.recognize(frame)  # Nhận diện từ frame camera
+    Cải thiện:
+    - Tiền xử lý ảnh (CLAHE) cho điều kiện ánh sáng khó
+    - Dual detection: face_recognition + Haar Cascade fallback  
+    - Xử lý ở độ phân giải 75% thay vì 50%
+    - Tăng jitter khi encode để chính xác hơn
+    - Voting system: chọn kết quả phổ biến nhất
     """
 
     def __init__(self):
-        self.known_encodings = []       # Danh sách encoding đã biết
-        self.known_student_codes = []   # Danh sách mã SV tương ứng
-        self.known_names = []           # Danh sách tên SV tương ứng
+        self.known_encodings = []
+        self.known_student_codes = []
+        self.known_names = []
         self.is_loaded = False
+        # Cache kết quả gần nhất (dùng để ổn định nhận dạng)
+        self._last_results = {}
+        self._recognition_history = {}  # {student_code: count}
 
     def load_encodings(self):
-        """Tải file encoding đã train trước đó"""
+        """Tải file encoding đã train"""
         if not os.path.exists(ENCODINGS_FILE):
-            print("⚠️ Chưa có file encoding. Hãy chạy train_model.py trước!")
+            print("Chua co file encoding. Hay chay train_model.py truoc!")
             return False
 
         try:
@@ -57,25 +114,20 @@ class FaceEngine:
             self.known_names = data["names"]
             self.is_loaded = True
 
-            print(f"✅ Đã tải {len(self.known_encodings)} khuôn mặt đã đăng ký")
+            unique_students = len(set(self.known_student_codes))
+            print(f"Da tai {len(self.known_encodings)} encoding cua {unique_students} sinh vien")
             return True
         except Exception as e:
-            print(f"❌ Lỗi tải encoding: {e}")
+            print(f"Loi tai encoding: {e}")
             return False
 
     def train_from_dataset(self):
         """
         Train model từ thư mục dataset.
-        Cấu trúc thư mục:
-            dataset/
-                SV001_NguyenVanA/
-                    1.jpg
-                    2.jpg
-                SV002_TranThiB/
-                    1.jpg
+        Sử dụng num_jitters để tăng độ chính xác encoding.
         """
         if not FACE_LIB_AVAILABLE:
-            print("❌ Cần cài đặt face_recognition!")
+            print("Can cai dat face_recognition!")
             return False
 
         encodings = []
@@ -83,21 +135,19 @@ class FaceEngine:
         names = []
 
         if not os.path.exists(DATASET_DIR):
-            print(f"❌ Thư mục dataset không tồn tại: {DATASET_DIR}")
+            print(f"Thu muc dataset khong ton tai: {DATASET_DIR}")
             return False
 
-        # Duyệt qua từng thư mục sinh viên
         student_dirs = [d for d in os.listdir(DATASET_DIR)
                         if os.path.isdir(os.path.join(DATASET_DIR, d))]
 
         if not student_dirs:
-            print("❌ Không có dữ liệu sinh viên trong dataset/")
+            print("Khong co du lieu sinh vien trong dataset/")
             return False
 
-        print(f"🔄 Bắt đầu train {len(student_dirs)} sinh viên...")
+        print(f"Bat dau train {len(student_dirs)} sinh vien...")
 
         for student_dir in student_dirs:
-            # Tên thư mục: SV001_NguyenVanA
             parts = student_dir.split("_", 1)
             student_code = parts[0]
             student_name = parts[1].replace("_", " ") if len(parts) > 1 else student_code
@@ -106,26 +156,50 @@ class FaceEngine:
             image_files = [f for f in os.listdir(student_path)
                            if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
 
-            print(f"  📸 {student_name} ({student_code}): {len(image_files)} ảnh", end="")
+            print(f"  {student_name} ({student_code}): {len(image_files)} anh", end="")
 
             face_count = 0
             for img_file in image_files:
                 img_path = os.path.join(student_path, img_file)
-                image = face_recognition.load_image_file(img_path)
 
-                # Tìm và encode khuôn mặt
-                face_encs = face_recognition.face_encodings(image, model=FACE_RECOGNITION_MODEL)
+                # Đọc ảnh bằng OpenCV để tiền xử lý
+                img_bgr = cv2.imread(img_path)
+                if img_bgr is None:
+                    continue
 
-                if face_encs:
-                    encodings.append(face_encs[0])
-                    student_codes.append(student_code)
-                    names.append(student_name)
-                    face_count += 1
+                # Tiền xử lý: cân bằng sáng
+                img_enhanced = preprocess_frame(img_bgr)
 
-            print(f" → {face_count} khuôn mặt ✅" if face_count > 0 else " → Không tìm thấy khuôn mặt ❌")
+                # Chuyển BGR → RGB cho face_recognition
+                img_rgb = cv2.cvtColor(img_enhanced, cv2.COLOR_BGR2RGB)
+
+                # Phát hiện khuôn mặt
+                face_locs = face_recognition.face_locations(img_rgb, model=FACE_RECOGNITION_MODEL,
+                                                            number_of_times_to_upsample=FACE_UPSCALE)
+
+                if not face_locs:
+                    # Thử với ảnh gốc (không enhance)
+                    img_rgb_orig = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+                    face_locs = face_recognition.face_locations(img_rgb_orig, model=FACE_RECOGNITION_MODEL,
+                                                                number_of_times_to_upsample=FACE_UPSCALE)
+
+                if face_locs:
+                    # Encode với num_jitters cao hơn = chính xác hơn (nhưng chậm hơn)
+                    face_encs = face_recognition.face_encodings(
+                        img_rgb, face_locs, num_jitters=NUM_JITTERS
+                    )
+
+                    for enc in face_encs:
+                        encodings.append(enc)
+                        student_codes.append(student_code)
+                        names.append(student_name)
+                        face_count += 1
+
+            status = f" -> {face_count} khuon mat OK" if face_count > 0 else " -> KHONG TIM THAY khuon mat"
+            print(status)
 
         if not encodings:
-            print("❌ Không encode được khuôn mặt nào!")
+            print("Khong encode duoc khuon mat nao!")
             return False
 
         # Lưu file encoding
@@ -143,89 +217,137 @@ class FaceEngine:
         self.known_names = names
         self.is_loaded = True
 
-        print(f"\n🎉 Train hoàn tất! Đã lưu {len(encodings)} encoding vào {ENCODINGS_FILE}")
+        unique = len(set(student_codes))
+        print(f"\nTrain hoan tat! {len(encodings)} encoding cua {unique} sinh vien")
         return True
 
     def detect_faces(self, frame):
         """
-        Phát hiện khuôn mặt trong frame.
-        
-        Args:
-            frame: Frame từ camera (BGR format)
-            
-        Returns:
-            List of (top, right, bottom, left) - vị trí khuôn mặt
+        Phát hiện khuôn mặt - kết hợp 2 phương pháp:
+        1. face_recognition (chính xác hơn)
+        2. Haar Cascade (fallback, nhanh hơn)
         """
         if not FACE_LIB_AVAILABLE:
-            return []
+            return detect_faces_haar(frame)
 
-        # Chuyển BGR → RGB (face_recognition dùng RGB)
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # Tiền xử lý
+        enhanced = preprocess_frame(frame)
+        rgb_frame = cv2.cvtColor(enhanced, cv2.COLOR_BGR2RGB)
 
-        # Thu nhỏ frame để xử lý nhanh hơn
-        small_frame = cv2.resize(rgb_frame, (0, 0), fx=0.5, fy=0.5)
+        # Thử face_recognition trước
+        face_locations = face_recognition.face_locations(
+            rgb_frame, model=FACE_RECOGNITION_MODEL,
+            number_of_times_to_upsample=1
+        )
 
-        # Phát hiện khuôn mặt
-        face_locations = face_recognition.face_locations(small_frame, model=FACE_RECOGNITION_MODEL)
+        # Nếu không tìm thấy, thử Haar Cascade
+        if not face_locations:
+            face_locations = detect_faces_haar(frame)
 
-        # Scale lại vị trí cho frame gốc
-        face_locations = [(t*2, r*2, b*2, l*2) for (t, r, b, l) in face_locations]
+        # Nếu vẫn không, thử face_recognition với upsample=2
+        if not face_locations:
+            face_locations = face_recognition.face_locations(
+                rgb_frame, model=FACE_RECOGNITION_MODEL,
+                number_of_times_to_upsample=2
+            )
 
         return face_locations
 
     def recognize(self, frame):
         """
-        Nhận diện khuôn mặt trong frame camera.
+        Nhận diện khuôn mặt - phiên bản nâng cấp.
         
-        Args:
-            frame: Frame từ camera (BGR format)
-            
-        Returns:
-            List of dict: [{
-                "student_code": "SV001",
-                "name": "Nguyễn Văn A",
-                "confidence": 0.85,
-                "location": (top, right, bottom, left)
-            }]
+        Cải thiện:
+        - Tiền xử lý ảnh (CLAHE) trước khi nhận diện
+        - Xử lý ở 75% resolution (thay vì 50%)
+        - Dual detection fallback
+        - Tính confidence chính xác hơn
         """
         if not FACE_LIB_AVAILABLE or not self.is_loaded:
             return []
 
+        # Tiền xử lý: cân bằng sáng
+        enhanced = preprocess_frame(frame)
+
         # Chuyển BGR → RGB
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        rgb_frame = cv2.cvtColor(enhanced, cv2.COLOR_BGR2RGB)
 
-        # Thu nhỏ để xử lý nhanh
-        small_frame = cv2.resize(rgb_frame, (0, 0), fx=0.5, fy=0.5)
+        # Thu nhỏ 75% (giữ nhiều chi tiết hơn so với 50%)
+        scale = 0.75
+        small_frame = cv2.resize(rgb_frame, (0, 0), fx=scale, fy=scale)
 
-        # Phát hiện và encode khuôn mặt
-        face_locations = face_recognition.face_locations(small_frame, model=FACE_RECOGNITION_MODEL)
-        face_encodings = face_recognition.face_encodings(small_frame, face_locations)
+        # Phát hiện khuôn mặt
+        face_locations = face_recognition.face_locations(
+            small_frame, model=FACE_RECOGNITION_MODEL,
+            number_of_times_to_upsample=1
+        )
 
-        results = []
-        for encoding, location in zip(face_encodings, face_locations):
-            # So khớp với tất cả khuôn mặt đã đăng ký
-            matches = face_recognition.compare_faces(
-                self.known_encodings, encoding,
-                tolerance=FACE_RECOGNITION_TOLERANCE
+        # Fallback: Haar Cascade nếu không tìm thấy
+        if not face_locations:
+            small_bgr = cv2.resize(enhanced, (0, 0), fx=scale, fy=scale)
+            haar_locs = detect_faces_haar(small_bgr)
+            if haar_locs:
+                face_locations = haar_locs
+
+        # Fallback 2: thử upsample=2
+        if not face_locations:
+            face_locations = face_recognition.face_locations(
+                small_frame, model=FACE_RECOGNITION_MODEL,
+                number_of_times_to_upsample=2
             )
 
-            # Tính khoảng cách (distance nhỏ = giống hơn)
+        if not face_locations:
+            return []
+
+        # Encode khuôn mặt đã tìm thấy
+        face_encodings = face_recognition.face_encodings(small_frame, face_locations, num_jitters=1)
+
+        results = []
+        inv_scale = 1.0 / scale
+
+        for encoding, location in zip(face_encodings, face_locations):
+            # So khớp với tất cả khuôn mặt đã đăng ký
             distances = face_recognition.face_distance(self.known_encodings, encoding)
 
             student_code = "Unknown"
-            name = "Không xác định"
+            name = "Khong xac dinh"
             confidence = 0.0
 
-            if True in matches:
-                # Tìm khuôn mặt giống nhất
+            if len(distances) > 0:
                 best_match_idx = np.argmin(distances)
-                if matches[best_match_idx]:
+                best_distance = distances[best_match_idx]
+
+                # Kiểm tra với tolerance
+                if best_distance <= FACE_RECOGNITION_TOLERANCE:
                     student_code = self.known_student_codes[best_match_idx]
                     name = self.known_names[best_match_idx]
-                    confidence = round(1 - distances[best_match_idx], 2)
+                    confidence = round(1 - best_distance, 2)
+
+                    # Voting: đếm xem code này xuất hiện bao nhiêu lần
+                    # trong top matches để tăng độ tin cậy
+                    threshold_matches = distances <= FACE_RECOGNITION_TOLERANCE
+                    if np.sum(threshold_matches) > 1:
+                        matching_codes = [self.known_student_codes[i]
+                                          for i in range(len(distances))
+                                          if threshold_matches[i]]
+                        # Lấy code phổ biến nhất
+                        from collections import Counter
+                        code_counts = Counter(matching_codes)
+                        most_common_code, count = code_counts.most_common(1)[0]
+                        if count > 1:
+                            student_code = most_common_code
+                            # Tìm tên tương ứng
+                            for i, sc in enumerate(self.known_student_codes):
+                                if sc == most_common_code:
+                                    name = self.known_names[i]
+                                    break
+
+                    # Cập nhật lịch sử nhận diện (ổn định kết quả)
+                    self._recognition_history[student_code] = \
+                        self._recognition_history.get(student_code, 0) + 1
 
             # Scale lại vị trí cho frame gốc
-            top, right, bottom, left = [v * 2 for v in location]
+            top, right, bottom, left = [int(v * inv_scale) for v in location]
 
             results.append({
                 "student_code": student_code,
@@ -245,19 +367,25 @@ class FaceEngine:
             is_known = result["student_code"] != "Unknown"
 
             # Màu: xanh lá = đã biết, đỏ = không biết
-            color = (0, 200, 0) if is_known else (0, 0, 255)
+            color = (0, 220, 0) if is_known else (0, 0, 255)
 
-            # Vẽ khung khuôn mặt
+            # Vẽ khung khuôn mặt (dày hơn)
             cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
 
             # Vẽ nền cho text
-            label = f"{name} ({confidence*100:.0f}%)" if is_known else "Khong xac dinh"
-            cv2.rectangle(frame, (left, bottom - 35), (right, bottom), color, cv2.FILLED)
-            cv2.putText(frame, label, (left + 6, bottom - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            if is_known:
+                label = f"{name} ({confidence*100:.0f}%)"
+            else:
+                label = "Unknown"
+
+            # Tính kích thước text
+            (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+            cv2.rectangle(frame, (left, bottom), (left + tw + 10, bottom + th + 16), color, cv2.FILLED)
+            cv2.putText(frame, label, (left + 5, bottom + th + 8),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
         return frame
 
 
-# Instance toàn cục để sử dụng trong toàn bộ ứng dụng
+# Instance toàn cục
 face_engine = FaceEngine()

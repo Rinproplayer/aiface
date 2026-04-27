@@ -1,32 +1,25 @@
 """
-Main - Điểm danh bằng nhận diện khuôn mặt
-============================================
-Mở webcam, nhận diện khuôn mặt realtime, tự động điểm danh.
-Sử dụng: python main.py
+Điểm danh bằng nhận diện khuôn mặt - PHIÊN BẢN NÂNG CẤP
+============================================================
+Cải thiện:
+- Xử lý liên tục (mỗi 2 frame thay vì 3)
+- Hệ thống xác nhận: cần nhận diện đúng 3 lần liên tiếp mới ghi điểm danh
+- Hiển thị trạng thái rõ ràng hơn
 """
 
 import cv2
-import json
 import time
-import asyncio
-import threading
 import requests
 from datetime import datetime
+from collections import Counter
 
 from config import CAMERA_INDEX, CAMERA_WIDTH, CAMERA_HEIGHT
-from face_engine import FaceEngine
-from database import (
-    get_student_by_code, mark_attendance, get_all_classes,
-    get_students_by_class
-)
-
-# Biến toàn cục để giao tiếp với WebSocket
-attendance_events = []
-attendance_lock = threading.Lock()
+from face_engine import FaceEngine, preprocess_frame
+from database import get_student_by_code, mark_attendance, get_all_classes
 
 
 def send_websocket_notification(student_code, student_name, class_id, confidence):
-    """Gửi thông báo điểm danh qua API (để WebSocket broadcast)"""
+    """Gửi thông báo điểm danh qua API"""
     try:
         data = {
             "student_code": student_code,
@@ -37,62 +30,62 @@ def send_websocket_notification(student_code, student_name, class_id, confidence
         }
         requests.post("http://localhost:8000/api/attendance/notify", json=data, timeout=2)
     except Exception:
-        pass  # Server có thể chưa chạy
+        pass
 
 
 def run_attendance(class_id=None):
-    """
-    Chạy điểm danh bằng webcam.
-    
-    Args:
-        class_id: ID lớp học (None = chọn từ menu)
-    """
+    """Chạy điểm danh - phiên bản nâng cấp"""
     print("=" * 50)
-    print("📷 ĐIỂM DANH BẰNG NHẬN DIỆN KHUÔN MẶT")
+    print("DIEM DANH BANG NHAN DIEN KHUON MAT")
     print("=" * 50)
 
     # Chọn lớp học
     if class_id is None:
         classes = get_all_classes()
         if not classes:
-            print("❌ Chưa có lớp học nào! Hãy tạo lớp trên Web Dashboard.")
+            print("Chua co lop hoc nao!")
             return
 
-        print("\n📚 Danh sách lớp học:")
+        print("\nDanh sach lop hoc:")
         for c in classes:
             print(f"  [{c['id']}] {c['class_code']} - {c['class_name']}")
 
         try:
-            class_id = int(input("\n📝 Nhập ID lớp cần điểm danh: "))
+            class_id = int(input("\nNhap ID lop can diem danh: "))
         except ValueError:
-            print("❌ ID không hợp lệ!")
+            print("ID khong hop le!")
             return
 
-    # Tải model nhận diện
-    print("\n🔄 Đang tải model nhận diện...")
+    # Tải model
+    print("\nDang tai model nhan dien...")
     engine = FaceEngine()
     if not engine.load_encodings():
-        print("❌ Chưa train model! Hãy chạy: python train_model.py")
+        print("Chua train model! Hay chay: python train_model.py")
         return
 
     # Mở webcam
-    print(f"\n📷 Mở webcam...")
+    print(f"\nMo webcam...")
     cap = cv2.VideoCapture(CAMERA_INDEX)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
 
     if not cap.isOpened():
-        print("❌ Không thể mở webcam!")
+        print("Khong the mo webcam!")
         return
 
-    print("✅ Webcam đã sẵn sàng!")
-    print("   Nhấn Q để thoát | Nhấn R để reload model")
+    print("Webcam da san sang!")
+    print("   Nhan Q de thoat | Nhan R de reload model")
     print("-" * 50)
 
-    # Danh sách SV đã điểm danh trong phiên này
-    checked_in = set()
+    checked_in = set()        # SV đã điểm danh
     frame_count = 0
-    process_every_n = 3  # Xử lý mỗi 3 frame để tăng tốc
+    process_every_n = 2       # Xử lý mỗi 2 frame (nhanh hơn)
+
+    # Hệ thống xác nhận: cần nhận đúng N lần liên tiếp
+    confirm_threshold = 3     # Cần 3 lần nhận đúng mới ghi
+    recognition_buffer = {}   # {student_code: [confidence, confidence, ...]}
+
+    last_results = []         # Kết quả gần nhất để vẽ
 
     while True:
         ret, frame = cap.read()
@@ -102,54 +95,88 @@ def run_attendance(class_id=None):
         frame_count += 1
         display = frame.copy()
 
-        # Chỉ xử lý nhận diện mỗi N frame
+        # Xử lý nhận diện mỗi N frame
         if frame_count % process_every_n == 0:
             results = engine.recognize(frame)
+            last_results = results
 
             for result in results:
                 student_code = result["student_code"]
                 name = result["name"]
                 confidence = result["confidence"]
-                top, right, bottom, left = result["location"]
 
                 if student_code != "Unknown" and student_code not in checked_in:
-                    # Tìm sinh viên trong database
-                    student = get_student_by_code(student_code)
-                    if student:
-                        # Ghi nhận điểm danh
-                        status = "present"
-                        success = mark_attendance(student["id"], class_id, confidence, status)
+                    # Thêm vào buffer xác nhận
+                    if student_code not in recognition_buffer:
+                        recognition_buffer[student_code] = []
 
-                        if success:
-                            checked_in.add(student_code)
-                            timestamp = datetime.now().strftime("%H:%M:%S")
-                            print(f"  ✅ [{timestamp}] {name} ({student_code}) - Độ tin cậy: {confidence*100:.0f}%")
+                    recognition_buffer[student_code].append(confidence)
 
-                            # Gửi thông báo WebSocket
-                            send_websocket_notification(student_code, name, class_id, confidence)
+                    # Kiểm tra đã đủ lần xác nhận chưa
+                    if len(recognition_buffer[student_code]) >= confirm_threshold:
+                        avg_confidence = sum(recognition_buffer[student_code]) / len(recognition_buffer[student_code])
 
-            # Vẽ kết quả lên frame
-            display = engine.draw_results(display, results)
+                        # Tìm sinh viên trong database
+                        student = get_student_by_code(student_code)
+                        if student:
+                            status = "present"
+                            success = mark_attendance(student["id"], class_id, avg_confidence, status)
+
+                            if success:
+                                checked_in.add(student_code)
+                                timestamp = datetime.now().strftime("%H:%M:%S")
+                                print(f"  [{timestamp}] {name} ({student_code}) - Do tin cay: {avg_confidence*100:.0f}%")
+                                send_websocket_notification(student_code, name, class_id, avg_confidence)
+
+                        # Xóa khỏi buffer
+                        del recognition_buffer[student_code]
+
+                elif student_code == "Unknown":
+                    pass  # Bỏ qua người không xác định
+
+            # Xóa buffer cũ (quá 30 frame không nhận lại)
+            stale_codes = [code for code, confs in recognition_buffer.items()
+                          if len(confs) > 0 and frame_count % 60 == 0]
+            for code in stale_codes:
+                if len(recognition_buffer[code]) < confirm_threshold:
+                    recognition_buffer[code] = []
+
+        # Vẽ kết quả gần nhất
+        if last_results:
+            display = engine.draw_results(display, last_results)
 
         # Hiển thị thông tin
-        cv2.putText(display, f"Da diem danh: {len(checked_in)} SV | Q: Thoat",
-                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        cv2.putText(display, datetime.now().strftime("%H:%M:%S"),
-                    (CAMERA_WIDTH - 120, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+        info_text = f"Da diem danh: {len(checked_in)} SV | Q: Thoat | R: Reload"
+        cv2.putText(display, info_text,
+                    (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-        cv2.imshow("AI Diem Danh - Nhan PHIM Q de thoat", display)
+        time_text = datetime.now().strftime("%H:%M:%S")
+        cv2.putText(display, time_text,
+                    (CAMERA_WIDTH - 130, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+
+        # Hiển thị danh sách đang chờ xác nhận
+        if recognition_buffer:
+            y_pos = 50
+            for code, confs in recognition_buffer.items():
+                progress = f"{len(confs)}/{confirm_threshold}"
+                cv2.putText(display, f"Dang xac nhan: {code} ({progress})",
+                            (10, y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 200, 255), 1)
+                y_pos += 20
+
+        cv2.imshow("AI Diem Danh - Nhan Q de thoat", display)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
         elif key == ord('r'):
-            print("🔄 Reload model...")
+            print("Reload model...")
             engine.load_encodings()
+            recognition_buffer.clear()
 
     cap.release()
     cv2.destroyAllWindows()
 
-    print(f"\n📊 Kết quả: Đã điểm danh {len(checked_in)} sinh viên")
+    print(f"\nKet qua: Da diem danh {len(checked_in)} sinh vien")
     print("=" * 50)
 
 

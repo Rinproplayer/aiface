@@ -1,8 +1,6 @@
 """
 Cấu hình hệ thống AI Điểm Danh
 ================================
-File này chứa tất cả các thiết lập cấu hình cho hệ thống.
-Thay đổi các giá trị bên dưới cho phù hợp với môi trường của bạn.
 """
 
 import os
@@ -14,34 +12,36 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_CONFIG = {
     "host": "localhost",
     "port": 3306,
-    "user": "root",           # Thay đổi nếu dùng user khác
-    "password": "",            # Nhập mật khẩu MySQL của bạn
+    "user": "root",
+    "password": "",
     "database": "aiface_db",
 }
 
 # === Cấu hình đường dẫn ===
-DATASET_DIR = os.path.join(BASE_DIR, "dataset")          # Thư mục ảnh khuôn mặt
-ENCODINGS_DIR = os.path.join(BASE_DIR, "encodings")       # Thư mục file encoding
+DATASET_DIR = os.path.join(BASE_DIR, "dataset")
+ENCODINGS_DIR = os.path.join(BASE_DIR, "encodings")
 ENCODINGS_FILE = os.path.join(ENCODINGS_DIR, "face_encodings.pkl")
-EXPORTS_DIR = os.path.join(BASE_DIR, "exports")           # Thư mục xuất Excel
+EXPORTS_DIR = os.path.join(BASE_DIR, "exports")
 
 # === Cấu hình nhận diện khuôn mặt ===
-FACE_RECOGNITION_TOLERANCE = 0.5    # Ngưỡng nhận diện (0.0 - 1.0, nhỏ hơn = chính xác hơn)
-FACE_RECOGNITION_MODEL = "hog"      # "hog" (nhanh, CPU) hoặc "cnn" (chính xác, cần GPU)
-NUM_PHOTOS_PER_STUDENT = 5          # Số ảnh chụp khi đăng ký khuôn mặt
+FACE_RECOGNITION_TOLERANCE = 0.55      # Tăng từ 0.5 lên 0.55 (dễ nhận hơn)
+FACE_RECOGNITION_MODEL = "hog"         # "hog" (nhanh) hoặc "cnn" (chính xác, cần GPU)
+NUM_PHOTOS_PER_STUDENT = 10            # Tăng từ 5 lên 10 ảnh để nhận chính xác hơn
+NUM_JITTERS = 3                        # Số lần jitter khi encode (tăng = chính xác hơn)
+FACE_UPSCALE = 2                       # Phóng to ảnh để phát hiện mặt nhỏ
 
 # === Cấu hình Camera ===
-CAMERA_INDEX = 0                    # Index webcam (0 = webcam mặc định)
-CAMERA_WIDTH = 640                  # Độ rộng frame
-CAMERA_HEIGHT = 480                 # Độ cao frame
+CAMERA_INDEX = 0
+CAMERA_WIDTH = 640
+CAMERA_HEIGHT = 480
 
 # === Cấu hình điểm danh ===
-LATE_THRESHOLD_MINUTES = 15         # Sau bao nhiêu phút tính là trễ
+LATE_THRESHOLD_MINUTES = 15
 
-# === Cấu hình JWT (Authentication) ===
+# === Cấu hình JWT ===
 SECRET_KEY = "aiface-secret-key-change-this-in-production-2024"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 480   # Token hết hạn sau 8 giờ
+ACCESS_TOKEN_EXPIRE_MINUTES = 480
 
 # === Cấu hình Server ===
 SERVER_HOST = "0.0.0.0"

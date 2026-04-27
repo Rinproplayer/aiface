@@ -2,68 +2,54 @@
 ## Hệ thống điểm danh sinh viên bằng nhận diện khuôn mặt
 
 ### 📋 Mô tả
-Hệ thống sử dụng AI nhận diện khuôn mặt để tự động điểm danh sinh viên khi vào lớp. Giảng viên có thể quản lý sinh viên, lớp học và xem báo cáo điểm danh qua web dashboard.
+Hệ thống sử dụng AI nhận diện khuôn mặt để tự động điểm danh sinh viên.
+Giảng viên quản lý sinh viên, lớp học và xem báo cáo qua web dashboard.
 
-### ⚙️ Công nghệ sử dụng
+### ⚙️ Công nghệ
 - **AI/CV**: face_recognition, OpenCV, dlib
 - **Backend**: FastAPI, WebSocket
 - **Frontend**: HTML, CSS, JavaScript
 - **Database**: MySQL
-- **Auth**: JWT Token
+- **Auth**: JWT Token + bcrypt
 
 ---
 
-## 🚀 Hướng dẫn cài đặt
+## 🚀 Cài đặt & Chạy
 
-### Bước 1: Cài đặt thư viện Python
+### Bước 1: Cài thư viện
 ```bash
-cd d:\AIFace
 pip install -r requirements.txt
+pip install dlib-bin
+pip install face-recognition --no-deps
+pip install face-recognition-models
+pip install setuptools<81
+pip install requests
 ```
 
-> ⚠️ Nếu lỗi khi cài `dlib`, cần cài trước:
-> - Visual Studio Build Tools (Desktop C++)
-> - CMake
-
-### Bước 2: Tạo Database MySQL
+### Bước 2: Tạo Database
 ```bash
-mysql -u root -p < setup_database.sql
-```
-Hoặc mở MySQL Workbench → chạy nội dung file `setup_database.sql`
-
-### Bước 3: Cấu hình
-Mở file `config.py`, sửa password MySQL:
-```python
-DB_CONFIG = {
-    "host": "localhost",
-    "user": "root",
-    "password": "your_password_here",  # ← Sửa ở đây
-    "database": "aiface_db",
-}
+python setup_db.py
+python fix_password.py
 ```
 
----
-
-## 📖 Hướng dẫn sử dụng
-
-### 1. Chạy Web Dashboard
+### Bước 3: Chạy Server
 ```bash
 python server.py
 ```
-Mở trình duyệt: http://localhost:8000
-- **Tài khoản**: admin / admin123
+Mở trình duyệt: **http://localhost:8000**
+- Tài khoản: `admin` / `admin123`
 
-### 2. Đăng ký khuôn mặt sinh viên
+### Bước 4: Đăng ký khuôn mặt
 ```bash
 python register_face.py
 ```
 
-### 3. Train model nhận diện
+### Bước 5: Train model
 ```bash
 python train_model.py
 ```
 
-### 4. Bắt đầu điểm danh
+### Bước 6: Bắt đầu điểm danh
 ```bash
 python main.py
 ```
@@ -74,15 +60,33 @@ python main.py
 ```
 AIFace/
 ├── main.py              # Điểm danh qua webcam
-├── register_face.py     # Đăng ký khuôn mặt
-├── train_model.py       # Train model
-├── server.py            # API server + WebSocket
-├── config.py            # Cấu hình
+├── register_face.py     # Đăng ký khuôn mặt SV
+├── train_model.py       # Train model nhận diện
+├── server.py            # FastAPI server + WebSocket
+├── config.py            # Cấu hình hệ thống
 ├── database.py          # Thao tác MySQL
 ├── auth.py              # JWT authentication
-├── face_engine.py       # Engine nhận diện
+├── face_engine.py       # Engine nhận diện khuôn mặt
+├── setup_db.py          # Script tạo database
 ├── web/                 # Web Dashboard
-├── dataset/             # Ảnh khuôn mặt
+│   ├── index.html       # Trang đăng nhập
+│   ├── dashboard.html   # Tổng quan
+│   ├── students.html    # Quản lý sinh viên
+│   ├── classes.html     # Quản lý lớp học
+│   ├── attendance.html  # Xem điểm danh
+│   ├── css/style.css    # Giao diện
+│   └── js/app.js        # Logic JavaScript
+├── dataset/             # Ảnh khuôn mặt SV
 ├── encodings/           # Model đã train
 └── exports/             # File Excel xuất ra
 ```
+
+## 🔑 Tính năng
+- ✅ Đăng nhập giảng viên (JWT)
+- ✅ Quản lý sinh viên (CRUD)
+- ✅ Quản lý nhiều lớp học
+- ✅ Đăng ký khuôn mặt qua webcam
+- ✅ Nhận diện & điểm danh tự động
+- ✅ Dashboard realtime (WebSocket)
+- ✅ Xuất báo cáo Excel
+- ✅ Thống kê điểm danh
