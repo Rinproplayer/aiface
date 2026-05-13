@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Hồ sơ - AI Face Attendance</title><link rel="stylesheet" href="/web/css/style.css"></head>
+<body>
+    <div class="animated-bg"><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
+    <div class="app">
+        <div id="sidebar-root"></div>
+        <main class="main">
+            <div class="page-top">
+                <div><h1>Hồ sơ cá nhân</h1><p class="desc">Cập nhật thông tin và đổi mật khẩu</p></div>
+            </div>
+            <div class="grid-2">
+                <div class="panel">
+                    <div class="panel-head"><h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Thông tin cá nhân</h2></div>
+                    <form id="profileForm" onsubmit="saveProfile(event)">
+                        <div class="fg"><label>Tên đăng nhập</label><input type="text" id="pUser" class="fc" disabled style="opacity:.5"></div>
+                        <div class="fg"><label>Vai trò</label><input type="text" id="pRole" class="fc" disabled style="opacity:.5"></div>
+                        <div class="fg"><label>Họ và tên</label><input type="text" id="pName" class="fc" required></div>
+                        <div class="fg"><label>Email</label><input type="email" id="pEmail" class="fc"></div>
+                        <button type="submit" class="btn btn-primary">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                            Lưu thay đổi
+                        </button>
+                    </form>
+                </div>
+                <div class="panel">
+                    <div class="panel-head"><h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Đổi mật khẩu</h2></div>
+                    <form id="pwForm" onsubmit="changePw(event)">
+                        <div class="fg"><label>Mật khẩu hiện tại</label><input type="password" id="pwOld" class="fc" required></div>
+                        <div class="fg"><label>Mật khẩu mới</label><input type="password" id="pwNew" class="fc" required minlength="6" placeholder="Tối thiểu 6 ký tự"></div>
+                        <div class="fg"><label>Xác nhận mật khẩu mới</label><input type="password" id="pwNew2" class="fc" required></div>
+                        <button type="submit" class="btn btn-green">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            Đổi mật khẩu
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="/web/js/app.js"></script><script src="/web/js/sidebar.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', loadProfile);
+        async function loadProfile(){
+            try{
+                const token=localStorage.getItem('token');
+                const r=await fetch(`/api/auth/me?token=${token}`);
+                if(!r.ok)throw new Error();
+                const u=await r.json();
+                document.getElementById('pUser').value=u.username||'';
+                document.getElementById('pRole').value=u.role==='admin'?'Quản trị viên':'Giảng viên';
+                document.getElementById('pName').value=u.full_name||'';
+                document.getElementById('pEmail').value=u.email||'';
+            }catch(e){showToast('Lỗi tải thông tin','error');}
+        }
+        async function saveProfile(e){
+            e.preventDefault();
+            try{
+                const token=localStorage.getItem('token');
+                const r=await fetch(`/api/auth/profile?token=${token}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+                    full_name:document.getElementById('pName').value,
+                    email:document.getElementById('pEmail').value
+                })});
+                const d=await r.json();
+                if(r.ok){
+                    showToast('Cập nhật thành công!','success');
+                    // Cập nhật localStorage
+                    const user=JSON.parse(localStorage.getItem('user')||'{}');
+                    user.full_name=document.getElementById('pName').value;
+                    user.email=document.getElementById('pEmail').value;
+                    localStorage.setItem('user',JSON.stringify(user));
+                    // Cập nhật sidebar
+                    const nameEl=document.getElementById('userName');
+                    if(nameEl)nameEl.textContent=user.full_name;
+                }else{showToast(d.detail||'Lỗi','error');}
+            }catch(e){showToast('Lỗi kết nối','error');}
+        }
+        async function changePw(e){
+            e.preventDefault();
+            const pw1=document.getElementById('pwNew').value,pw2=document.getElementById('pwNew2').value;
+            if(pw1!==pw2){showToast('Mật khẩu mới không khớp!','error');return;}
+            if(pw1.length<6){showToast('Mật khẩu mới phải từ 6 ký tự!','error');return;}
+            try{
+                const token=localStorage.getItem('token');
+                const r=await fetch(`/api/auth/password?token=${token}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+                    old_password:document.getElementById('pwOld').value,
+                    new_password:pw1
+                })});
+                const d=await r.json();
+                if(r.ok){showToast('Đổi mật khẩu thành công!','success');document.getElementById('pwForm').reset();}
+                else{showToast(d.detail||'Lỗi','error');}
+            }catch(e){showToast('Lỗi kết nối','error');}
+        }
+    </script>
+</body>
+</html>

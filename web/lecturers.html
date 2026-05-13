@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Quản lý giảng viên - AI Face Attendance</title><link rel="stylesheet" href="/web/css/style.css"></head>
+<body>
+    <div class="animated-bg"><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
+    <div class="app">
+        <div id="sidebar-root"></div>
+        <main class="main">
+            <div class="page-top">
+                <div><h1>Quản lý giảng viên</h1><p class="desc">Thêm, xóa tài khoản giảng viên</p></div>
+                <button class="btn btn-primary" onclick="openAdd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Thêm giảng viên</button>
+            </div>
+            <div class="panel">
+                <div class="panel-head"><h2>Danh sách tài khoản</h2></div>
+                <div class="tbl-wrap"><table><thead><tr><th>STT</th><th>Username</th><th>Họ và tên</th><th>Email</th><th>Vai trò</th><th>Ngày tạo</th><th>Thao tác</th></tr></thead>
+                <tbody id="tbl"><tr><td colspan="7" class="empty"><p>Đang tải...</p></td></tr></tbody></table></div>
+            </div>
+        </main>
+    </div>
+    <div class="modal-bg" id="modal"><div class="modal">
+        <div class="modal-top"><h3>Thêm giảng viên</h3><button class="modal-x" onclick="closeModal('modal')">✕</button></div>
+        <form id="frm" onsubmit="save(event)">
+            <div class="fg"><label>Tên đăng nhập *</label><input type="text" id="fUser" class="fc" required></div>
+            <div class="fg"><label>Họ và tên *</label><input type="text" id="fName" class="fc" required></div>
+            <div class="fg"><label>Email</label><input type="email" id="fEmail" class="fc"></div>
+            <div class="fg"><label>Mật khẩu *</label><input type="password" id="fPass" class="fc" required minlength="6" placeholder="Tối thiểu 6 ký tự"></div>
+            <div class="fg"><label>Vai trò</label><select id="fRole" class="fc"><option value="lecturer">Giảng viên</option><option value="admin">Quản trị viên</option></select></div>
+            <div class="modal-btns"><button type="button" class="btn btn-ghost" onclick="closeModal('modal')">Hủy</button><button type="submit" class="btn btn-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Tạo tài khoản</button></div>
+        </form>
+    </div></div>
+    <script src="/web/js/app.js"></script><script src="/web/js/sidebar.js"></script>
+    <script>
+        // Kiểm tra quyền admin
+        document.addEventListener('DOMContentLoaded',()=>{
+            const user=JSON.parse(localStorage.getItem('user')||'{}');
+            if(user.role!=='admin'){showToast('Bạn không có quyền truy cập!','error');setTimeout(()=>window.location.href='/dashboard',1500);return;}
+            load();
+        });
+        async function load(){
+            try{
+                const d=await apiCall('/api/lecturers');const t=document.getElementById('tbl');
+                if(!d||!d.length){t.innerHTML='<tr><td colspan="7" class="empty"><p>Chưa có giảng viên</p></td></tr>';return;}
+                t.innerHTML=d.map((l,i)=>{
+                    const roleBadge=l.role==='admin'?'<span class="badge badge-warn">Admin</span>':'<span class="badge badge-info">Giảng viên</span>';
+                    const curUser=JSON.parse(localStorage.getItem('user')||'{}');
+                    const delBtn=l.id!==curUser.id?`<button class="btn btn-red btn-sm" onclick="del(${l.id},'${l.full_name}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>`:'<span class="badge badge-ok">Bạn</span>';
+                    return`<tr><td>${i+1}</td><td><strong>${l.username}</strong></td><td>${l.full_name}</td><td>${l.email||'—'}</td><td>${roleBadge}</td><td>${fmtDateTime(l.created_at)}</td><td>${delBtn}</td></tr>`;
+                }).join('');
+            }catch(e){showToast('Lỗi tải dữ liệu','error');}
+        }
+        function openAdd(){document.getElementById('frm').reset();openModal('modal');}
+        async function save(e){
+            e.preventDefault();
+            try{
+                const token=localStorage.getItem('token');
+                const r=await fetch(`/api/lecturers?token=${token}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+                    username:document.getElementById('fUser').value,
+                    password:document.getElementById('fPass').value,
+                    full_name:document.getElementById('fName').value,
+                    email:document.getElementById('fEmail').value,
+                    role:document.getElementById('fRole').value
+                })});
+                const d=await r.json();
+                if(r.ok){showToast('Thêm thành công!','success');closeModal('modal');load();}
+                else{showToast(d.detail||'Lỗi','error');}
+            }catch(e){showToast('Lỗi kết nối','error');}
+        }
+        async function del(id,name){
+            if(!confirm(`Xóa giảng viên "${name}"?`))return;
+            try{
+                const token=localStorage.getItem('token');
+                const r=await fetch(`/api/lecturers/${id}?token=${token}`,{method:'DELETE'});
+                const d=await r.json();
+                if(r.ok){showToast('Đã xóa!','success');load();}
+                else{showToast(d.detail||'Lỗi','error');}
+            }catch(e){showToast('Lỗi','error');}
+        }
+    </script>
+</body>
+</html>

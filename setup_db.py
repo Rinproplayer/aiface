@@ -23,8 +23,16 @@ cursor.execute("""CREATE TABLE IF NOT EXISTS lecturers (
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(100),
+    role ENUM('admin', 'lecturer') DEFAULT 'lecturer',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )""")
+
+# Thêm cột role nếu bảng đã tồn tại nhưng chưa có cột role
+try:
+    cursor.execute("ALTER TABLE lecturers ADD COLUMN role ENUM('admin', 'lecturer') DEFAULT 'lecturer'")
+    print("  ✅ Added 'role' column to lecturers")
+except:
+    pass  # Cột đã tồn tại
 
 cursor.execute("""CREATE TABLE IF NOT EXISTS classes (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -78,9 +86,11 @@ print("✅ 2. All tables created")
 hash_pw = "$2b$12$LJ3m4ys3GZwnk3MqFJG8mu8JQoXvJxFqGM1E0x3hGvp6bQ6j1u6K."
 try:
     cursor.execute(
-        "INSERT IGNORE INTO lecturers (username, password_hash, full_name, email) VALUES (%s, %s, %s, %s)",
-        ("admin", hash_pw, "Admin", "admin@university.edu")
+        "INSERT IGNORE INTO lecturers (username, password_hash, full_name, email, role) VALUES (%s, %s, %s, %s, %s)",
+        ("admin", hash_pw, "Admin", "admin@university.edu", "admin")
     )
+    # Cập nhật role cho admin nếu đã tồn tại
+    cursor.execute("UPDATE lecturers SET role='admin' WHERE username='admin'")
 except Exception as e:
     print(f"  Note: {e}")
 

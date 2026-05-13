@@ -64,7 +64,7 @@ def get_lecturer_by_id(lecturer_id):
         return None
     try:
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id, username, full_name, email, created_at FROM lecturers WHERE id = %s", (lecturer_id,))
+        cursor.execute("SELECT id, username, full_name, email, role, created_at FROM lecturers WHERE id = %s", (lecturer_id,))
         return cursor.fetchone()
     except Error as e:
         print(f"❌ Lỗi truy vấn giảng viên: {e}")
@@ -80,11 +80,88 @@ def get_all_lecturers():
         return []
     try:
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id, username, full_name, email, created_at FROM lecturers ORDER BY id")
+        cursor.execute("SELECT id, username, full_name, email, role, created_at FROM lecturers ORDER BY id")
         return cursor.fetchall()
     except Error as e:
         print(f"❌ Lỗi: {e}")
         return []
+    finally:
+        conn.close()
+
+
+def add_lecturer(username, password_hash, full_name, email="", role="lecturer"):
+    """Thêm giảng viên mới (đăng ký tài khoản)"""
+    conn = get_connection()
+    if not conn:
+        return None
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO lecturers (username, password_hash, full_name, email, role) VALUES (%s, %s, %s, %s, %s)",
+            (username, password_hash, full_name, email, role)
+        )
+        conn.commit()
+        return cursor.lastrowid
+    except Error as e:
+        print(f"❌ Lỗi thêm giảng viên: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def update_lecturer(lecturer_id, full_name, email=""):
+    """Cập nhật thông tin giảng viên"""
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE lecturers SET full_name=%s, email=%s WHERE id=%s",
+            (full_name, email, lecturer_id)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except Error as e:
+        print(f"❌ Lỗi cập nhật giảng viên: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def change_lecturer_password(lecturer_id, new_password_hash):
+    """Đổi mật khẩu giảng viên"""
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE lecturers SET password_hash=%s WHERE id=%s",
+            (new_password_hash, lecturer_id)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except Error as e:
+        print(f"❌ Lỗi đổi mật khẩu: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def delete_lecturer(lecturer_id):
+    """Xóa giảng viên"""
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM lecturers WHERE id = %s", (lecturer_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+    except Error as e:
+        print(f"❌ Lỗi xóa giảng viên: {e}")
+        return False
     finally:
         conn.close()
 

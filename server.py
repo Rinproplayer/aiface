@@ -28,7 +28,8 @@ from database import (
     get_classes_by_lecturer,
     enroll_student, unenroll_student,
     mark_attendance, get_attendance_by_class_date, get_attendance_summary,
-    get_dashboard_stats, get_recent_attendance, get_all_lecturers
+    get_dashboard_stats, get_recent_attendance, get_all_lecturers,
+    add_lecturer, update_lecturer, change_lecturer_password, delete_lecturer
 )
 from auth import verify_password, hash_password, create_access_token, decode_token
 
@@ -114,6 +115,27 @@ class AttendanceNotify(BaseModel):
     class_id: int
     confidence: float
     time: str
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    full_name: str
+    email: str = ""
+
+class ProfileUpdate(BaseModel):
+    full_name: str
+    email: str = ""
+
+class PasswordChange(BaseModel):
+    old_password: str
+    new_password: str
+
+class LecturerCreate(BaseModel):
+    username: str
+    password: str
+    full_name: str
+    email: str = ""
+    role: str = "lecturer"
 
 
 # ============================================
@@ -204,8 +226,8 @@ async def login(request: LoginRequest):
     if not verify_password(request.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Mật khẩu không đúng")
 
-    # Tạo JWT token
-    token = create_access_token(data={"sub": str(user["id"])})
+    # Tạo JWT token (bao gồm role)
+    token = create_access_token(data={"sub": str(user["id"]), "role": user.get("role", "lecturer")})
 
     return {
         "access_token": token,
@@ -214,9 +236,29 @@ async def login(request: LoginRequest):
             "id": user["id"],
             "username": user["username"],
             "full_name": user["full_name"],
-            "email": user["email"]
+            "email": user["email"],
+            "role": user.get("role", "lecturer")
         }
     }
+
+@app.post("/api/auth/register")
+async def register(request: RegisterRequest):
+    """Đăng ký tài khoản giảng viên mới"""
+    # Kiểm tra username đã tồn tại
+    existing = get_lecturer_by_username(request.username)
+    if existing:
+        raise HTTPException(status_code=400, detail="Tên đăng nhập đã tồn tại")
+
+    if len(request.password) < 6:
+        raise HTTPException(status_code=400, detail="Mật khẩu phải từ 6 ký tự trở lên")
+
+    hashed = hash_password(request.password)
+    lecturer_id = add_lecturer(request.username, hashed, request.full_name, request.email)
+
+    if not lecturer_id:
+        raise HTTPException(status_code=400, detail="Không thể tạo tài khoản")
+
+    return {"id": lecturer_id, "message": "Đăng ký thành công"}
 
 @app.get("/api/auth/me")
 async def get_me(token: str = Query(None)):
@@ -225,6 +267,82 @@ async def get_me(token: str = Query(None)):
     if not user:
         raise HTTPException(status_code=401, detail="Token không hợp lệ")
     return serialize_row(user)
+
+@app.put("/api/auth/profile")
+async def update_profile(data: ProfileUpdate, token: str = Query(None)):
+    """Cập nhật thông tin cá nhân"""
+    user = get_current_user(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Token không hợp lệ")
+
+    success = update_lecturer(user["id"], data.full_name, data.email)
+    if not success:
+        raise HTTPException(status_code=400, detail="Không thể cập nhật")
+    return {"message": "Cập nhật thành công"}
+
+@app.put("/api/auth/password")
+async def change_password(data: PasswordChange, token: str = Query(None)):
+    """Đổi mật khẩu"""
+    user = get_current_user(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Token không hợp lệ")
+
+    # Lấy user đầy đủ (có password_hash)
+    full_user = get_lecturer_by_username(user["username"])
+    if not verify_password(data.old_password, full_user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Mật khẩu cũ không đúng")
+
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Mật khẩu mới phải từ 6 ký tự")
+
+    new_hash = hash_password(data.new_password)
+    success = change_lecturer_password(user["id"], new_hash)
+    if not success:
+        raise HTTPException(status_code=400, detail="Không thể đổi mật khẩu")
+    return {"message": "Đổi mật khẩu thành công"}
+
+
+# ============================================
+# API: Lecturers Management (Admin only)
+# ============================================
+
+@app.get("/api/lecturers")
+async def list_lecturers():
+    """Lấy danh sách giảng viên"""
+    lecturers = get_all_lecturers()
+    return serialize_rows(lecturers)
+
+@app.post("/api/lecturers")
+async def create_lecturer(data: LecturerCreate, token: str = Query(None)):
+    """Admin: Thêm giảng viên mới"""
+    user = get_current_user(token)
+    if not user or user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ admin mới có quyền")
+
+    existing = get_lecturer_by_username(data.username)
+    if existing:
+        raise HTTPException(status_code=400, detail="Tên đăng nhập đã tồn tại")
+
+    hashed = hash_password(data.password)
+    lid = add_lecturer(data.username, hashed, data.full_name, data.email, data.role)
+    if not lid:
+        raise HTTPException(status_code=400, detail="Không thể thêm giảng viên")
+    return {"id": lid, "message": "Thêm giảng viên thành công"}
+
+@app.delete("/api/lecturers/{lecturer_id}")
+async def remove_lecturer(lecturer_id: int, token: str = Query(None)):
+    """Admin: Xóa giảng viên"""
+    user = get_current_user(token)
+    if not user or user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ admin mới có quyền")
+
+    if user["id"] == lecturer_id:
+        raise HTTPException(status_code=400, detail="Không thể tự xóa chính mình")
+
+    success = delete_lecturer(lecturer_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Không thể xóa")
+    return {"message": "Xóa giảng viên thành công"}
 
 
 # ============================================
@@ -541,6 +659,14 @@ async def attendance_page():
 @app.get("/register-page")
 async def register_page():
     return FileResponse(os.path.join(web_dir, "register.html"))
+
+@app.get("/profile-page")
+async def profile_page():
+    return FileResponse(os.path.join(web_dir, "profile.html"))
+
+@app.get("/lecturers-page")
+async def lecturers_page():
+    return FileResponse(os.path.join(web_dir, "lecturers.html"))
 
 
 # ============================================
