@@ -7,41 +7,299 @@
         <div id="sidebar-root"></div>
         <main class="main">
             <div class="page-top">
-                <div><h1>Quản lý sinh viên</h1><p class="desc">Thêm, sửa, xóa thông tin sinh viên</p></div>
+                <div><h1>Quản lý sinh viên</h1><p class="desc">Thêm, sửa, xóa thông tin sinh viên và đăng ký khuôn mặt</p></div>
                 <button class="btn btn-primary" onclick="openAdd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Thêm sinh viên</button>
             </div>
             <div class="panel">
-                <div class="panel-head"><h2>Danh sách sinh viên</h2><input type="text" class="fc" id="search" placeholder="Tìm kiếm..." style="width:220px" oninput="filter()"></div>
+                <div class="panel-head"><h2>Danh sách sinh viên</h2><input type="text" class="fc" id="search" placeholder="Tìm kiếm theo tên, mã SV..." style="width:250px" oninput="filter()"></div>
                 <div class="tbl-wrap"><table><thead><tr><th>STT</th><th>Mã SV</th><th>Họ và tên</th><th>Email</th><th>SĐT</th><th>Khuôn mặt</th><th>Thao tác</th></tr></thead>
                 <tbody id="tbl"><tr><td colspan="7" class="empty"><p>Đang tải...</p></td></tr></tbody></table></div>
             </div>
         </main>
     </div>
+
+    <!-- Modal: Add/Edit Student -->
     <div class="modal-bg" id="modal">
         <div class="modal">
             <div class="modal-top"><h3 id="mTitle">Thêm sinh viên</h3><button class="modal-x" onclick="closeModal('modal')">✕</button></div>
             <form id="frm" onsubmit="save(event)">
                 <input type="hidden" id="eId">
-                <div class="fg"><label>Mã sinh viên *</label><input type="text" id="fCode" class="fc" required></div>
-                <div class="fg"><label>Họ và tên *</label><input type="text" id="fName" class="fc" required></div>
-                <div class="fg"><label>Email</label><input type="email" id="fEmail" class="fc"></div>
-                <div class="fg"><label>Số điện thoại</label><input type="text" id="fPhone" class="fc"></div>
+                <div class="fg"><label>Mã sinh viên *</label><input type="text" id="fCode" class="fc" required placeholder="VD: SV001"></div>
+                <div class="fg"><label>Họ và tên *</label><input type="text" id="fName" class="fc" required placeholder="VD: Nguyễn Văn A"></div>
+                <div class="fg"><label>Email</label><input type="email" id="fEmail" class="fc" placeholder="VD: sv@uni.edu"></div>
+                <div class="fg"><label>Số điện thoại</label><input type="text" id="fPhone" class="fc" placeholder="VD: 0987654321"></div>
                 <div class="modal-btns"><button type="button" class="btn btn-ghost" onclick="closeModal('modal')">Hủy</button><button type="submit" class="btn btn-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Lưu</button></div>
             </form>
         </div>
     </div>
+
+    <!-- Modal: Webcam Face Capture -->
+    <div class="modal-bg" id="cameraModal">
+        <div class="modal" style="max-width:500px">
+            <div class="modal-top">
+                <h3>Đăng ký khuôn mặt sinh viên</h3>
+                <button class="modal-x" onclick="closeCameraModal()">✕</button>
+            </div>
+            <div style="text-align:center;margin-bottom:15px">
+                <div style="position:relative;display:inline-block;border-radius:12px;overflow:hidden;background:#000;box-shadow: 0 4px 20px rgba(0,0,0,0.5)">
+                    <video id="webcam" autoplay playsinline style="width:100%;max-width:400px;display:block;transform:scaleX(-1)"></video>
+                    <canvas id="capCanvas" style="display:none"></canvas>
+                    <div id="flash" style="position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity 0.15s"></div>
+                    <div id="countdown" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:72px;font-weight:900;color:#fff;text-shadow:0 4px 20px rgba(0,0,0,0.6);pointer-events:none;display:none">3</div>
+                </div>
+            </div>
+            <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:15px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--blue);font-weight:700" id="guideStep">Bước 1/5</div>
+                <div style="font-size:14px;font-weight:600;margin-top:4px" id="guideText">Nhìn thẳng vào camera và giữ đầu thẳng</div>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:center;margin-bottom:20px" id="previewGrid">
+                <div class="pv-slot" style="width:55px;height:55px;border-radius:8px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-dim)">1</div>
+                <div class="pv-slot" style="width:55px;height:55px;border-radius:8px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-dim)">2</div>
+                <div class="pv-slot" style="width:55px;height:55px;border-radius:8px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-dim)">3</div>
+                <div class="pv-slot" style="width:55px;height:55px;border-radius:8px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-dim)">4</div>
+                <div class="pv-slot" style="width:55px;height:55px;border-radius:8px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-dim)">5</div>
+            </div>
+            <div class="modal-btns">
+                <button class="btn btn-ghost" onclick="closeCameraModal()">Hủy</button>
+                <button class="btn btn-primary" id="btnStartCapture" onclick="startAutoCapture()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Bắt đầu chụp tự động</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Student Attendance History -->
+    <div class="modal-bg" id="historyModal">
+        <div class="modal" style="max-width:550px">
+            <div class="modal-top">
+                <h3 id="hTitle">Lịch sử điểm danh</h3>
+                <button class="modal-x" onclick="closeModal('historyModal')">✕</button>
+            </div>
+            <div style="margin-bottom:15px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; text-align:center">
+                <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;padding:12px 8px">
+                    <div style="font-size:22px;font-weight:800;color:var(--green)" id="hPresent">0</div>
+                    <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px">Có mặt</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;padding:12px 8px">
+                    <div style="font-size:22px;font-weight:800;color:var(--orange)" id="hLate">0</div>
+                    <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px">Đi trễ</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;padding:12px 8px">
+                    <div style="font-size:22px;font-weight:800;color:var(--blue)" id="hTotal">0</div>
+                    <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px">Tổng buổi</div>
+                </div>
+            </div>
+            <div class="tbl-wrap" style="max-height:280px;overflow-y:auto">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Lớp học</th>
+                            <th>Ngày học</th>
+                            <th>Thời gian</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hTbl">
+                        <tr><td colspan="4" class="empty">Đang tải...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-btns">
+                <button class="btn btn-ghost" onclick="closeModal('historyModal')">Đóng</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/web/js/app.js"></script><script src="/web/js/sidebar.js"></script>
     <script>
-        let all=[];
+        let all=[], stream=null, captureId=null, capturedImages=[];
+        const guides = [
+            { step: "Bước 1/5", text: "Nhìn thẳng vào camera và giữ đầu thẳng" },
+            { step: "Bước 2/5", text: "Nghiêng đầu nhẹ sang bên TRÁI" },
+            { step: "Bước 3/5", text: "Nghiêng đầu nhẹ sang bên PHẢI" },
+            { step: "Bước 4/5", text: "Ngẩng đầu lên trên một chút" },
+            { step: "Bước 5/5", text: "Mỉm cười tự nhiên" }
+        ];
+
         document.addEventListener('DOMContentLoaded',load);
+
         async function load(){try{all=await apiCall('/api/students');render(all)}catch(e){document.getElementById('tbl').innerHTML='<tr><td colspan="7" class="empty"><p>Lỗi tải dữ liệu</p></td></tr>'}}
+        
         function render(list){const t=document.getElementById('tbl');if(!list||!list.length){t.innerHTML='<tr><td colspan="7" class="empty"><p>Chưa có sinh viên</p></td></tr>';return}
-            t.innerHTML=list.map((s,i)=>`<tr><td>${i+1}</td><td><strong>${s.student_code}</strong></td><td>${s.full_name}</td><td>${s.email||'—'}</td><td>${s.phone||'—'}</td><td>${s.face_registered?'<span class="badge badge-ok">Đã ĐK</span>':'<span class="badge badge-err">Chưa</span>'}</td><td><button class="btn btn-ghost btn-sm" onclick="edit(${s.id})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button> <button class="btn btn-red btn-sm" onclick="del(${s.id},'${s.full_name}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td></tr>`).join('')}
+            t.innerHTML=list.map((s,i)=>`<tr>
+                <td>${i+1}</td>
+                <td><strong>${s.student_code}</strong></td>
+                <td><a href="#" onclick="event.preventDefault();viewHistory(${s.id},'${s.full_name}')" style="font-weight:600;color:var(--text)">${s.full_name}</a></td>
+                <td style="color:var(--text-dim)">${s.email||'—'}</td>
+                <td style="color:var(--text-dim)">${s.phone||'—'}</td>
+                <td>${s.face_registered?'<span class="badge badge-ok">✓ Đã ĐK</span>':'<span class="badge badge-err">✗ Chưa</span>'}</td>
+                <td>
+                    <button class="btn btn-ghost btn-sm" onclick="openCamera(${s.id},'${s.full_name}')" title="Đăng ký khuôn mặt"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
+                    <button class="btn btn-ghost btn-sm" onclick="viewHistory(${s.id},'${s.full_name}')" title="Lịch sử điểm danh"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button>
+                    <button class="btn btn-ghost btn-sm" onclick="edit(${s.id})" title="Sửa"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button> 
+                    <button class="btn btn-red btn-sm" onclick="del(${s.id},'${s.full_name}')" title="Xóa"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                </td>
+            </tr>`).join('')}
+        
         function filter(){const q=document.getElementById('search').value.toLowerCase();render(all.filter(s=>s.student_code.toLowerCase().includes(q)||s.full_name.toLowerCase().includes(q)||(s.email||'').toLowerCase().includes(q)))}
         function openAdd(){document.getElementById('mTitle').textContent='Thêm sinh viên';document.getElementById('eId').value='';document.getElementById('frm').reset();openModal('modal')}
         function edit(id){const s=all.find(x=>x.id===id);if(!s)return;document.getElementById('mTitle').textContent='Sửa sinh viên';document.getElementById('eId').value=s.id;document.getElementById('fCode').value=s.student_code;document.getElementById('fName').value=s.full_name;document.getElementById('fEmail').value=s.email||'';document.getElementById('fPhone').value=s.phone||'';openModal('modal')}
         async function save(e){e.preventDefault();const id=document.getElementById('eId').value;const d={student_code:document.getElementById('fCode').value,full_name:document.getElementById('fName').value,email:document.getElementById('fEmail').value,phone:document.getElementById('fPhone').value};try{if(id){await apiCall(`/api/students/${id}`,'PUT',d);showToast('Cập nhật thành công!','success')}else{await apiCall('/api/students','POST',d);showToast('Thêm thành công!','success')}closeModal('modal');await load()}catch(e){showToast(e.message,'error')}}
         async function del(id,name){if(!confirm(`Xóa "${name}"?`))return;try{await apiCall(`/api/students/${id}`,'DELETE');showToast('Đã xóa!','success');await load()}catch(e){showToast(e.message,'error')}}
+
+        // ===== WEBCAM FACE REGISTRATION =====
+        async function openCamera(studentId, fullName) {
+            captureId = studentId;
+            capturedImages = [];
+            
+            document.getElementById('guideStep').textContent = guides[0].step;
+            document.getElementById('guideText').textContent = guides[0].text;
+            const btn = document.getElementById('btnStartCapture');
+            btn.disabled = false;
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Bắt đầu chụp tự động';
+            
+            const slots = document.querySelectorAll('.pv-slot');
+            slots.forEach((s, idx) => {
+                s.innerHTML = idx + 1;
+                s.style.border = '2px dashed var(--border)';
+                s.style.backgroundImage = 'none';
+                s.style.color = 'var(--text-dim)';
+            });
+
+            openModal('cameraModal');
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+                document.getElementById('webcam').srcObject = stream;
+            } catch(e) {
+                showToast('Không thể truy cập webcam: ' + e.message, 'error');
+                closeCameraModal();
+            }
+        }
+
+        function closeCameraModal() {
+            closeModal('cameraModal');
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+        }
+
+        function startAutoCapture() {
+            const btn = document.getElementById('btnStartCapture');
+            btn.disabled = true;
+            
+            let currentStep = 0;
+            capturedImages = [];
+
+            function nextCapture() {
+                if (currentStep >= 5) {
+                    btn.textContent = 'Đang huấn luyện model...';
+                    uploadImages();
+                    return;
+                }
+
+                document.getElementById('guideStep').textContent = guides[currentStep].step;
+                document.getElementById('guideText').textContent = guides[currentStep].text;
+
+                const cd = document.getElementById('countdown');
+                cd.style.display = 'block';
+                let count = 2;
+                cd.textContent = count;
+                
+                const interval = setInterval(() => {
+                    count--;
+                    if (count > 0) {
+                        cd.textContent = count;
+                    } else {
+                        clearInterval(interval);
+                        cd.style.display = 'none';
+                        
+                        const flash = document.getElementById('flash');
+                        flash.style.opacity = '1';
+                        setTimeout(() => flash.style.opacity = '0', 150);
+
+                        captureFrame(currentStep);
+                        currentStep++;
+                        
+                        setTimeout(nextCapture, 1000);
+                    }
+                }, 600);
+            }
+
+            nextCapture();
+        }
+
+        function captureFrame(stepIdx) {
+            const video = document.getElementById('webcam');
+            const canvas = document.getElementById('capCanvas');
+            canvas.width = 640;
+            canvas.height = 480;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            capturedImages.push(dataUrl);
+
+            const slot = document.querySelectorAll('.pv-slot')[stepIdx];
+            slot.innerHTML = '';
+            slot.style.backgroundImage = `url(${dataUrl})`;
+            slot.style.backgroundSize = 'cover';
+            slot.style.backgroundPosition = 'center';
+            slot.style.border = '2px solid var(--green)';
+        }
+
+        async function uploadImages() {
+            try {
+                const response = await apiCall(`/api/students/${captureId}/register-face`, 'POST', { images: capturedImages });
+                showToast(response.message, 'success');
+                closeCameraModal();
+                await load();
+            } catch(e) {
+                showToast(e.message || 'Lỗi', 'error');
+                document.getElementById('btnStartCapture').disabled = false;
+                document.getElementById('btnStartCapture').textContent = 'Thử lại';
+            }
+        }
+
+        // ===== PERSONAL ATTENDANCE HISTORY =====
+        async function viewHistory(studentId, fullName) {
+            document.getElementById('hTitle').textContent = `Lịch sử: ${fullName}`;
+            const t = document.getElementById('hTbl');
+            t.innerHTML = '<tr><td colspan="4" class="empty">Đang tải...</td></tr>';
+            
+            document.getElementById('hPresent').textContent = '0';
+            document.getElementById('hLate').textContent = '0';
+            document.getElementById('hTotal').textContent = '0';
+
+            openModal('historyModal');
+
+            try {
+                const data = await apiCall(`/api/attendance/student/${studentId}`);
+                
+                const presents = data.filter(a => a.status === 'present').length;
+                const lates = data.filter(a => a.status === 'late').length;
+                
+                document.getElementById('hPresent').textContent = presents;
+                document.getElementById('hLate').textContent = lates;
+                document.getElementById('hTotal').textContent = data.length;
+
+                if (!data.length) {
+                    t.innerHTML = '<tr><td colspan="4" class="empty">Không có lịch sử điểm danh nào</td></tr>';
+                    return;
+                }
+
+                t.innerHTML = data.map(a => `<tr>
+                    <td><strong>${a.class_code}</strong> <span style="font-size:11px;color:var(--text-dim);display:block">${a.class_name}</span></td>
+                    <td>${fmtDate(a.date)}</td>
+                    <td style="color:var(--text-dim)">${fmtDateTime(a.check_in_time)}</td>
+                    <td>${statusBadge(a.status)}</td>
+                </tr>`).join('');
+            } catch(e) {
+                t.innerHTML = '<tr><td colspan="4" class="empty">Lỗi tải dữ liệu</td></tr>';
+            }
+        }
     </script>
 </body>
 </html>

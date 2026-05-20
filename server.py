@@ -137,6 +137,19 @@ class LecturerCreate(BaseModel):
     email: str = ""
     role: str = "lecturer"
 
+class FaceRegisterRequest(BaseModel):
+    images: List[str]
+
+class ManualAttendanceRequest(BaseModel):
+    student_id: int
+    class_id: int
+    status: str
+    date: Optional[str] = None
+
+class RecognizeFrameRequest(BaseModel):
+    image: str
+    class_id: int
+
 
 # ============================================
 # WebSocket Manager (Quản lý kết nối realtime)
@@ -152,13 +165,13 @@ class ConnectionManager:
         """Chấp nhận kết nối WebSocket mới"""
         await websocket.accept()
         self.active_connections.append(websocket)
-        print(f"📡 WebSocket connected. Total: {len(self.active_connections)}")
+        print(f"[WS] WebSocket connected. Total: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
         """Xóa kết nối đã đóng"""
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-        print(f"📡 WebSocket disconnected. Total: {len(self.active_connections)}")
+        print(f"[WS] WebSocket disconnected. Total: {len(self.active_connections)}")
 
     async def broadcast(self, message: dict):
         """Gửi message đến tất cả client đang kết nối"""
@@ -350,17 +363,29 @@ async def remove_lecturer(lecturer_id: int, token: str = Query(None)):
 # ============================================
 
 @app.get("/api/dashboard/stats")
-async def dashboard_stats():
-    """Lấy thống kê tổng quan"""
-    stats = get_dashboard_stats()
+async def dashboard_stats(token: Optional[str] = Query(None)):
+    """Lấy thống kê tổng quan (phân quyền theo role)"""
+    lecturer_id = None
+    if token:
+        user = get_current_user(token)
+        if user and user.get("role") != "admin":
+            lecturer_id = user.get("id")
+
+    stats = get_dashboard_stats(lecturer_id)
     if stats.get("weekly_attendance"):
         stats["weekly_attendance"] = serialize_rows(stats["weekly_attendance"])
     return stats
 
 @app.get("/api/dashboard/recent")
-async def dashboard_recent(limit: int = 10):
-    """Lấy hoạt động điểm danh gần nhất"""
-    data = get_recent_attendance(limit)
+async def dashboard_recent(limit: int = 10, token: Optional[str] = Query(None)):
+    """Lấy hoạt động điểm danh gần nhất (phân quyền theo role)"""
+    lecturer_id = None
+    if token:
+        user = get_current_user(token)
+        if user and user.get("role") != "admin":
+            lecturer_id = user.get("id")
+
+    data = get_recent_attendance(limit, lecturer_id)
     return serialize_rows(data)
 
 
@@ -407,13 +432,82 @@ async def remove_student(student_id: int):
     return {"message": "Xóa sinh viên thành công"}
 
 
+@app.post("/api/students/{student_id}/register-face")
+async def register_face_api(student_id: int, data: FaceRegisterRequest):
+    """Đăng ký khuôn mặt từ webcam trình duyệt"""
+    import base64
+    import threading
+    from config import DATASET_DIR
+    from face_engine import preprocess_frame, FaceEngine
+    import cv2
+    import numpy as np
+
+    student = get_student_by_id(student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
+
+    student_code = student["student_code"]
+    full_name = student["full_name"]
+    folder_name = f"{student_code}_{full_name.replace(' ', '_')}"
+    student_dir = os.path.join(DATASET_DIR, folder_name)
+    os.makedirs(student_dir, exist_ok=True)
+
+    photo_count = 0
+    for img_base64 in data.images:
+        if "," in img_base64:
+            img_base64 = img_base64.split(",")[1]
+        
+        try:
+            img_data = base64.b64decode(img_base64)
+            nparr = np.frombuffer(img_data, np.uint8)
+            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if frame is None:
+                continue
+            
+            photo_count += 1
+            photo_path = os.path.join(student_dir, f"{photo_count}.jpg")
+            cv2.imwrite(photo_path, frame)
+
+            enhanced = preprocess_frame(frame)
+            enhanced_path = os.path.join(student_dir, f"{photo_count}_enhanced.jpg")
+            cv2.imwrite(enhanced_path, enhanced)
+        except Exception as e:
+            print(f"❌ Lỗi xử lý ảnh: {e}")
+            continue
+
+    if photo_count > 0:
+        first_photo = os.path.join(student_dir, "1.jpg")
+        update_face_registered(student_id, True, first_photo)
+        
+        def bg_train():
+            print("🚀 Bắt đầu train model từ background thread...")
+            try:
+                engine = FaceEngine()
+                engine.train_from_dataset()
+                print("✅ Train model từ background thành công!")
+            except Exception as ex:
+                print(f"❌ Lỗi khi train model: {ex}")
+
+        threading.Thread(target=bg_train, daemon=True).start()
+
+        return {"message": f"Đăng ký khuôn mặt thành công! Đã lưu {photo_count} ảnh và đang huấn luyện model..."}
+    else:
+        raise HTTPException(status_code=400, detail="Không có ảnh hợp lệ để đăng ký")
+
+
 # ============================================
 # API: Classes (Lớp học)
 # ============================================
 
 @app.get("/api/classes")
-async def list_classes():
-    """Lấy danh sách tất cả lớp học"""
+async def list_classes(token: Optional[str] = Query(None)):
+    """Lấy danh sách lớp học (phân quyền theo role)"""
+    if token:
+        user = get_current_user(token)
+        if user and user.get("role") != "admin":
+            classes = get_classes_by_lecturer(user.get("id"))
+            return serialize_rows(classes)
+    
     classes = get_all_classes()
     return serialize_rows(classes)
 
@@ -506,6 +600,167 @@ async def attendance_summary(class_id: int = Query(...)):
     """Lấy thống kê tổng hợp điểm danh theo lớp"""
     data = get_attendance_summary(class_id)
     return serialize_rows(data)
+
+@app.get("/api/attendance/student/{student_id}")
+async def list_student_attendance(student_id: int, class_id: Optional[int] = Query(None)):
+    """Lấy lịch sử điểm danh của một sinh viên"""
+    from database import get_attendance_by_student
+    data = get_attendance_by_student(student_id, class_id)
+    return serialize_rows(data)
+
+@app.post("/api/attendance/manual")
+async def manual_mark_attendance(data: ManualAttendanceRequest):
+    """Điểm danh thủ công hoặc sửa trạng thái điểm danh của sinh viên"""
+    from database import get_student_by_id, get_class_by_id, get_connection
+    from datetime import datetime, date as date_type
+    
+    student = get_student_by_id(data.student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
+        
+    cls = get_class_by_id(data.class_id)
+    if not cls:
+        raise HTTPException(status_code=404, detail="Không tìm thấy lớp học")
+        
+    target_date = date_type.today()
+    if data.date:
+        try:
+            target_date = date_type.fromisoformat(data.date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Định dạng ngày không hợp lệ")
+
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Không thể kết nối cơ sở dữ liệu")
+        
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT id FROM attendance WHERE student_id = %s AND class_id = %s AND date = %s",
+            (data.student_id, data.class_id, target_date)
+        )
+        existing = cursor.fetchone()
+        
+        now = datetime.now()
+        check_in_time = datetime.combine(target_date, now.time())
+        
+        if existing:
+            cursor.execute(
+                "UPDATE attendance SET status = %s, check_in_time = %s WHERE id = %s",
+                (data.status, check_in_time, existing["id"])
+            )
+            conn.commit()
+            message = "Cập nhật trạng thái thành công"
+        else:
+            cursor.execute(
+                """INSERT INTO attendance (student_id, class_id, date, check_in_time, status, confidence) 
+                   VALUES (%s, %s, %s, %s, %s, %s)""",
+                (data.student_id, data.class_id, target_date, check_in_time, data.status, 1.0)
+            )
+            conn.commit()
+            message = "Ghi nhận điểm danh thành công"
+            
+        websocket_message = {
+            "type": "attendance",
+            "student_code": student["student_code"],
+            "student_name": student["full_name"],
+            "class_id": data.class_id,
+            "confidence": 1.0,
+            "time": check_in_time.strftime("%H:%M:%S")
+        }
+        await manager.broadcast(websocket_message)
+        
+        return {"message": message}
+    except Exception as e:
+        print(f"Lỗi điểm danh thủ công: {e}")
+        raise HTTPException(status_code=400, detail="Không thể lưu điểm danh")
+    finally:
+        conn.close()
+
+@app.post("/api/attendance/recognize-frame")
+async def recognize_frame_api(data: RecognizeFrameRequest):
+    """Nhận diện khuôn mặt từ webcam trình duyệt và tự động điểm danh"""
+    import base64
+    import cv2
+    import numpy as np
+    from face_engine import FaceEngine
+    from database import mark_attendance, get_student_by_code
+    from datetime import datetime
+    
+    img_base64 = data.image
+    if "," in img_base64:
+        img_base64 = img_base64.split(",")[1]
+        
+    try:
+        img_data = base64.b64decode(img_base64)
+        nparr = np.frombuffer(img_data, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if frame is None:
+            raise HTTPException(status_code=400, detail="Không thể giải mã ảnh")
+            
+        engine = FaceEngine()
+        engine.load_encodings()
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        import face_recognition
+        
+        face_locations = face_recognition.face_locations(rgb_frame)
+        face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+        
+        if not face_locations:
+            return {"recognized": False, "message": "Không tìm thấy khuôn mặt"}
+            
+        recognized_students = []
+        for face_encoding in face_encodings:
+            if not engine.known_encodings:
+                break
+                
+            from config import FACE_RECOGNITION_TOLERANCE
+            matches = face_recognition.compare_faces(engine.known_encodings, face_encoding, tolerance=FACE_RECOGNITION_TOLERANCE)
+            face_distances = face_recognition.face_distance(engine.known_encodings, face_encoding)
+            
+            if True in matches:
+                best_match_index = np.argmin(face_distances)
+                if matches[best_match_index]:
+                    student_code = engine.known_student_codes[best_match_index]
+                    student = get_student_by_code(student_code)
+                    if student:
+                        confidence = 1.0 - face_distances[best_match_index]
+                        now = datetime.now()
+                        status = "present"
+                        
+                        success = mark_attendance(student["id"], data.class_id, float(confidence), status)
+                        
+                        if success:
+                            websocket_message = {
+                                "type": "attendance",
+                                "student_code": student["student_code"],
+                                "student_name": student["full_name"],
+                                "class_id": data.class_id,
+                                "confidence": float(confidence),
+                                "time": now.strftime("%H:%M:%S")
+                            }
+                            await manager.broadcast(websocket_message)
+                        
+                        recognized_students.append({
+                            "student_code": student["student_code"],
+                            "full_name": student["full_name"],
+                            "confidence": float(confidence),
+                            "status": status,
+                            "already_marked": not success
+                        })
+                        
+        if recognized_students:
+            return {
+                "recognized": True, 
+                "results": recognized_students, 
+                "message": f"Nhận diện thành công: {', '.join([r['full_name'] for r in recognized_students])}"
+            }
+        else:
+            return {"recognized": False, "message": "Khuôn mặt không khớp dữ liệu"}
+            
+    except Exception as e:
+        print(f"Lỗi nhận diện qua Web: {e}")
+        raise HTTPException(status_code=500, detail=f"Lỗi nhận diện: {str(e)}")
 
 @app.post("/api/attendance/notify")
 async def attendance_notify(data: AttendanceNotify):
@@ -676,11 +931,11 @@ async def lecturers_page():
 if __name__ == "__main__":
     import uvicorn
     print("=" * 50)
-    print("🚀 AI FACE ATTENDANCE - API SERVER")
+    print("AI FACE ATTENDANCE - API SERVER")
     print("=" * 50)
-    print(f"📡 Server: http://localhost:{SERVER_PORT}")
-    print(f"📖 API Docs: http://localhost:{SERVER_PORT}/docs")
-    print(f"🌐 Dashboard: http://localhost:{SERVER_PORT}/")
+    print(f"Server: http://localhost:{SERVER_PORT}")
+    print(f"API Docs: http://localhost:{SERVER_PORT}/docs")
+    print(f"Dashboard: http://localhost:{SERVER_PORT}/")
     print("=" * 50)
 
     uvicorn.run(app, host=SERVER_HOST, port=SERVER_PORT, reload=False)

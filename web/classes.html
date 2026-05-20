@@ -188,10 +188,13 @@
                 t.innerHTML=st.map((s,i)=>`<tr>
                     <td>${i+1}</td>
                     <td><strong>${s.student_code}</strong></td>
-                    <td>${s.full_name}</td>
+                    <td><a href="#" onclick="event.preventDefault();viewHistory(${s.id},'${s.full_name}')" style="font-weight:600;color:var(--text)">${s.full_name}</a></td>
                     <td style="color:var(--text-dim)">${s.email||'—'}</td>
                     <td>${s.face_registered?'<span class="badge badge-ok">✓ Đã ĐK</span>':'<span class="badge badge-err">✗ Chưa</span>'}</td>
-                    <td><button class="btn btn-red btn-sm" onclick="rmSt(${s.id})" title="Xóa khỏi lớp"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg></button></td>
+                    <td>
+                        <button class="btn btn-ghost btn-sm" onclick="viewHistory(${s.id},'${s.full_name}')" title="Lịch sử điểm danh"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button>
+                        <button class="btn btn-red btn-sm" onclick="rmSt(${s.id})" title="Xóa khỏi lớp"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                    </td>
                 </tr>`).join('');
             }catch(e){showToast('Lỗi tải danh sách SV','error')}
         }
@@ -300,6 +303,85 @@
                 await loadC();
             }catch(e){showToast(e.message,'error')}
         }
+
+        async function viewHistory(studentId, fullName) {
+            document.getElementById('hTitle').textContent = `Lịch sử: ${fullName}`;
+            const t = document.getElementById('hTbl');
+            t.innerHTML = '<tr><td colspan="4" class="empty">Đang tải...</td></tr>';
+            
+            document.getElementById('hPresent').textContent = '0';
+            document.getElementById('hLate').textContent = '0';
+            document.getElementById('hTotal').textContent = '0';
+
+            openModal('historyModal');
+
+            try {
+                const data = await apiCall(`/api/attendance/student/${studentId}`);
+                
+                const presents = data.filter(a => a.status === 'present').length;
+                const lates = data.filter(a => a.status === 'late').length;
+                
+                document.getElementById('hPresent').textContent = presents;
+                document.getElementById('hLate').textContent = lates;
+                document.getElementById('hTotal').textContent = data.length;
+
+                if (!data.length) {
+                    t.innerHTML = '<tr><td colspan="4" class="empty">Không có lịch sử điểm danh nào</td></tr>';
+                    return;
+                }
+
+                t.innerHTML = data.map(a => `<tr>
+                    <td><strong>${a.class_code}</strong> <span style="font-size:11px;color:var(--text-dim);display:block">${a.class_name}</span></td>
+                    <td>${fmtDate(a.date)}</td>
+                    <td style="color:var(--text-dim)">${fmtDateTime(a.check_in_time)}</td>
+                    <td>${statusBadge(a.status)}</td>
+                </tr>`).join('');
+            } catch(e) {
+                t.innerHTML = '<tr><td colspan="4" class="empty">Lỗi tải dữ liệu</td></tr>';
+            }
+        }
     </script>
+
+    <!-- Modal: Student Attendance History -->
+    <div class="modal-bg" id="historyModal">
+        <div class="modal" style="max-width:550px">
+            <div class="modal-top">
+                <h3 id="hTitle">Lịch sử điểm danh</h3>
+                <button class="modal-x" onclick="closeModal('historyModal')">✕</button>
+            </div>
+            <div style="margin-bottom:15px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; text-align:center">
+                <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;padding:12px 8px">
+                    <div style="font-size:22px;font-weight:800;color:var(--green)" id="hPresent">0</div>
+                    <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px">Có mặt</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;padding:12px 8px">
+                    <div style="font-size:22px;font-weight:800;color:var(--orange)" id="hLate">0</div>
+                    <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px">Đi trễ</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;padding:12px 8px">
+                    <div style="font-size:22px;font-weight:800;color:var(--blue)" id="hTotal">0</div>
+                    <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px">Tổng buổi</div>
+                </div>
+            </div>
+            <div class="tbl-wrap" style="max-height:280px;overflow-y:auto">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Lớp học</th>
+                            <th>Ngày học</th>
+                            <th>Thời gian</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hTbl">
+                        <tr><td colspan="4" class="empty">Đang tải...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-btns">
+                <button class="btn btn-ghost" onclick="closeModal('historyModal')">Đóng</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

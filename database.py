@@ -612,40 +612,80 @@ def get_attendance_summary(class_id):
 # THỐNG KÊ (Dashboard Stats)
 # ============================================
 
-def get_dashboard_stats():
-    """Lấy thống kê tổng quan cho dashboard"""
+def get_dashboard_stats(lecturer_id=None):
+    """Lấy thống kê tổng quan cho dashboard (hỗ trợ lọc theo lecturer_id)"""
     conn = get_connection()
     if not conn:
         return {}
     try:
         cursor = conn.cursor(dictionary=True)
-
-        # Tổng số sinh viên
-        cursor.execute("SELECT COUNT(*) as count FROM students")
-        total_students = cursor.fetchone()["count"]
-
-        # Tổng số lớp
-        cursor.execute("SELECT COUNT(*) as count FROM classes")
-        total_classes = cursor.fetchone()["count"]
-
-        # Điểm danh hôm nay
         today = date.today()
-        cursor.execute("SELECT COUNT(*) as count FROM attendance WHERE date = %s", (today,))
-        today_attendance = cursor.fetchone()["count"]
 
-        # Số SV đã đăng ký khuôn mặt
-        cursor.execute("SELECT COUNT(*) as count FROM students WHERE face_registered = TRUE")
-        face_registered = cursor.fetchone()["count"]
+        if lecturer_id is not None:
+            # Tổng số sinh viên thuộc các lớp của giảng viên này
+            cursor.execute("""
+                SELECT COUNT(DISTINCT sc.student_id) as count 
+                FROM student_classes sc 
+                JOIN classes c ON sc.class_id = c.id 
+                WHERE c.lecturer_id = %s
+            """, (lecturer_id,))
+            total_students = cursor.fetchone()["count"]
 
-        # Điểm danh 7 ngày gần nhất
-        cursor.execute("""
-            SELECT date, COUNT(*) as count 
-            FROM attendance 
-            WHERE date >= %s
-            GROUP BY date 
-            ORDER BY date
-        """, (today - timedelta(days=6),))
-        weekly_data = cursor.fetchall()
+            # Tổng số lớp của giảng viên này
+            cursor.execute("SELECT COUNT(*) as count FROM classes WHERE lecturer_id = %s", (lecturer_id,))
+            total_classes = cursor.fetchone()["count"]
+
+            # Điểm danh hôm nay của giảng viên này
+            cursor.execute("""
+                SELECT COUNT(*) as count 
+                FROM attendance a 
+                JOIN classes c ON a.class_id = c.id 
+                WHERE c.lecturer_id = %s AND a.date = %s
+            """, (lecturer_id, today))
+            today_attendance = cursor.fetchone()["count"]
+
+            # Số SV đã đăng ký khuôn mặt trong các lớp của giảng viên này
+            cursor.execute("""
+                SELECT COUNT(DISTINCT s.id) as count 
+                FROM students s 
+                JOIN student_classes sc ON s.id = sc.student_id 
+                JOIN classes c ON sc.class_id = c.id 
+                WHERE c.lecturer_id = %s AND s.face_registered = TRUE
+            """, (lecturer_id,))
+            face_registered = cursor.fetchone()["count"]
+
+            # Điểm danh 7 ngày gần nhất của các lớp thuộc giảng viên này
+            cursor.execute("""
+                SELECT a.date, COUNT(*) as count 
+                FROM attendance a 
+                JOIN classes c ON a.class_id = c.id 
+                WHERE c.lecturer_id = %s AND a.date >= %s
+                GROUP BY a.date 
+                ORDER BY a.date
+            """, (lecturer_id, today - timedelta(days=6)))
+            weekly_data = cursor.fetchall()
+        else:
+            # Admin hoặc mặc định (tất cả hệ thống)
+            cursor.execute("SELECT COUNT(*) as count FROM students")
+            total_students = cursor.fetchone()["count"]
+
+            cursor.execute("SELECT COUNT(*) as count FROM classes")
+            total_classes = cursor.fetchone()["count"]
+
+            cursor.execute("SELECT COUNT(*) as count FROM attendance WHERE date = %s", (today,))
+            today_attendance = cursor.fetchone()["count"]
+
+            cursor.execute("SELECT COUNT(*) as count FROM students WHERE face_registered = TRUE")
+            face_registered = cursor.fetchone()["count"]
+
+            cursor.execute("""
+                SELECT date, COUNT(*) as count 
+                FROM attendance 
+                WHERE date >= %s
+                GROUP BY date 
+                ORDER BY date
+            """, (today - timedelta(days=6),))
+            weekly_data = cursor.fetchall()
 
         return {
             "total_students": total_students,
@@ -661,21 +701,32 @@ def get_dashboard_stats():
         conn.close()
 
 
-def get_recent_attendance(limit=10):
-    """Lấy danh sách điểm danh gần nhất"""
+def get_recent_attendance(limit=10, lecturer_id=None):
+    """Lấy danh sách điểm danh gần nhất (hỗ trợ lọc theo giảng viên)"""
     conn = get_connection()
     if not conn:
         return []
     try:
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT a.*, s.student_code, s.full_name, c.class_code, c.class_name
-            FROM attendance a
-            JOIN students s ON a.student_id = s.id
-            JOIN classes c ON a.class_id = c.id
-            ORDER BY a.check_in_time DESC
-            LIMIT %s
-        """, (limit,))
+        if lecturer_id is not None:
+            cursor.execute("""
+                SELECT a.*, s.student_code, s.full_name, c.class_code, c.class_name
+                FROM attendance a
+                JOIN students s ON a.student_id = s.id
+                JOIN classes c ON a.class_id = c.id
+                WHERE c.lecturer_id = %s
+                ORDER BY a.check_in_time DESC
+                LIMIT %s
+            """, (lecturer_id, limit))
+        else:
+            cursor.execute("""
+                SELECT a.*, s.student_code, s.full_name, c.class_code, c.class_name
+                FROM attendance a
+                JOIN students s ON a.student_id = s.id
+                JOIN classes c ON a.class_id = c.id
+                ORDER BY a.check_in_time DESC
+                LIMIT %s
+            """, (limit,))
         return cursor.fetchall()
     except Error as e:
         print(f"❌ Lỗi: {e}")

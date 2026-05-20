@@ -52,28 +52,25 @@
         async function save(e){
             e.preventDefault();
             try{
-                const token=localStorage.getItem('token');
-                const r=await fetch(`/api/lecturers?token=${token}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-                    username:document.getElementById('fUser').value,
-                    password:document.getElementById('fPass').value,
-                    full_name:document.getElementById('fName').value,
-                    email:document.getElementById('fEmail').value,
-                    role:document.getElementById('fRole').value
-                })});
-                const d=await r.json();
-                if(r.ok){showToast('Thêm thành công!','success');closeModal('modal');load();}
-                else{showToast(d.detail||'Lỗi','error');}
-            }catch(e){showToast('Lỗi kết nối','error');}
+                const d = await apiCall('/api/lecturers', 'POST', {
+                    username: document.getElementById('fUser').value,
+                    password: document.getElementById('fPass').value,
+                    full_name: document.getElementById('fName').value,
+                    email: document.getElementById('fEmail').value,
+                    role: document.getElementById('fRole').value
+                });
+                showToast('Thêm thành công!', 'success');
+                closeModal('modal');
+                await load();
+            }catch(e){showToast(e.message || 'Lỗi', 'error');}
         }
         async function del(id,name){
             if(!confirm(`Xóa giảng viên "${name}"?`))return;
             try{
-                const token=localStorage.getItem('token');
-                const r=await fetch(`/api/lecturers/${id}?token=${token}`,{method:'DELETE'});
-                const d=await r.json();
-                if(r.ok){showToast('Đã xóa!','success');load();}
-                else{showToast(d.detail||'Lỗi','error');}
-            }catch(e){showToast('Lỗi','error');}
+                await apiCall(`/api/lecturers/${id}`, 'DELETE');
+                showToast('Đã xóa!', 'success');
+                await load();
+            }catch(e){showToast(e.message || 'Lỗi', 'error');}
         }
     </script>
 </body>

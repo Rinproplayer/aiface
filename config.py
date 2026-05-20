@@ -24,10 +24,10 @@ ENCODINGS_FILE = os.path.join(ENCODINGS_DIR, "face_encodings.pkl")
 EXPORTS_DIR = os.path.join(BASE_DIR, "exports")
 
 # === Cấu hình nhận diện khuôn mặt ===
-FACE_RECOGNITION_TOLERANCE = 0.55      # Tăng từ 0.5 lên 0.55 (dễ nhận hơn)
+FACE_RECOGNITION_TOLERANCE = 0.58      # Cân bằng hoàn hảo giữa độ nhạy và chống nhận nhầm
 FACE_RECOGNITION_MODEL = "hog"         # "hog" (nhanh) hoặc "cnn" (chính xác, cần GPU)
-NUM_PHOTOS_PER_STUDENT = 10            # Tăng từ 5 lên 10 ảnh để nhận chính xác hơn
-NUM_JITTERS = 3                        # Số lần jitter khi encode (tăng = chính xác hơn)
+NUM_PHOTOS_PER_STUDENT = 10            # Số ảnh tối đa để nhận chính xác hơn
+NUM_JITTERS = 10                       # Tăng lên 10 để trích xuất vec-tơ khuôn mặt cực kỳ ổn định và chống nhiễu
 FACE_UPSCALE = 2                       # Phóng to ảnh để phát hiện mặt nhỏ
 
 # === Cấu hình Camera ===

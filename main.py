@@ -120,7 +120,7 @@ def run_attendance(class_id=None):
                         student = get_student_by_code(student_code)
                         if student:
                             status = "present"
-                            success = mark_attendance(student["id"], class_id, avg_confidence, status)
+                            success = mark_attendance(student["id"], class_id, status, avg_confidence)
 
                             if success:
                                 checked_in.add(student_code)

@@ -240,3 +240,88 @@ select.fc{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
     .class-grid{grid-template-columns:1fr}
     .detail-stats{grid-template-columns:1fr}.detail-stats .ds-item{border-right:none;border-bottom:1px solid var(--border)}
 }
+
+/* ===== LIGHT MODE STYLES ===== */
+body.light-theme {
+    --bg-dark: #f5f5fa;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f0f0f8;
+    --bg-input: #fdfdfd;
+    --border: rgba(0,0,0,0.08);
+    --border-focus: rgba(99,102,241,0.6);
+    --text: #1a1a2e;
+    --text-dim: #5c5c7c;
+    --text-muted: #8c8ca8;
+    --shadow: 0 4px 24px rgba(0,0,0,0.05);
+    --grad-bg: linear-gradient(135deg,#f5f5fa 0%,#eef2f3 50%,#f5f5fa 100%);
+}
+body.light-theme .sidebar {
+    background: #ffffff;
+    border-right: 1px solid var(--border);
+}
+body.light-theme .brand-icon {
+    background: var(--blue);
+}
+body.light-theme .nav-link {
+    color: var(--text-dim);
+}
+body.light-theme .nav-link:hover {
+    background: rgba(99,102,241,0.06);
+    color: var(--blue);
+}
+body.light-theme .nav-link.active {
+    background: rgba(99,102,241,0.08);
+    color: var(--blue);
+}
+body.light-theme .user-card {
+    background: rgba(99,102,241,0.04);
+    border: 1px solid rgba(99,102,241,0.08);
+}
+body.light-theme .avatar {
+    background: var(--blue);
+}
+body.light-theme .avatar svg {
+    stroke: #fff;
+}
+body.light-theme .panel {
+    background: #ffffff;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.02);
+}
+body.light-theme .fc {
+    border: 1px solid rgba(0,0,0,0.12);
+    color: var(--text);
+    background: var(--bg-input);
+}
+body.light-theme .fc::placeholder {
+    color: #a0a0c0;
+}
+body.light-theme .tbl-wrap th {
+    background: #f8f8fc;
+    color: var(--text-dim);
+}
+body.light-theme .tbl-wrap tr:hover td {
+    background: #fafafc;
+}
+body.light-theme .empty {
+    background: #fafafc;
+}
+body.light-theme .modal {
+    background: #ffffff;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+}
+body.light-theme .detail-panel {
+    background: #ffffff;
+}
+body.light-theme .info-item {
+    background: #fafafc;
+}
+body.light-theme .class-card {
+    background: #ffffff;
+}
+body.light-theme .class-card .cc-footer {
+    background: #fafafc;
+}
+body.light-theme .class-card:hover {
+    box-shadow: 0 8px 30px rgba(0,0,0,0.06);
+}
+

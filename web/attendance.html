@@ -1,28 +1,156 @@
 <!DOCTYPE html>
 <html lang="vi">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Điểm danh - AI Face Attendance</title><link rel="stylesheet" href="/web/css/style.css"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Điểm danh - AI Face Attendance</title><link rel="stylesheet" href="/web/css/style.css">
+<style>
+/* Style for printing reports */
+@media print {
+    body {
+        background: #ffffff !important;
+        color: #000000 !important;
+    }
+    .sidebar, .animated-bg, .filters, .btn, .page-top, #feed, .dot, .panel-head span, h1, h2 {
+        display: none !important;
+    }
+    .main {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .panel {
+        background: none !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin-bottom: 20px !important;
+    }
+    .tbl-wrap {
+        overflow: visible !important;
+        max-height: none !important;
+    }
+    .tbl-wrap table {
+        border-collapse: collapse !important;
+        width: 100% !important;
+    }
+    .tbl-wrap th, .tbl-wrap td {
+        border: 1px solid #666666 !important;
+        color: #000000 !important;
+        padding: 8px !important;
+        font-size: 12px !important;
+        text-align: left !important;
+        background: none !important;
+    }
+    .tbl-wrap th {
+        background: #eaeaea !important;
+        font-weight: bold !important;
+    }
+    .badge {
+        border: none !important;
+        background: none !important;
+        color: #000 !important;
+        padding: 0 !important;
+        font-weight: bold !important;
+    }
+    .print-only {
+        display: block !important;
+    }
+}
+
+/* Scanner Radar Effect */
+.scanner-container {
+    position: relative;
+    display: inline-block;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    width: 100%;
+    max-width: 420px;
+}
+.scanner-laser {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(to bottom, transparent, var(--blue), transparent);
+    animation: radar-sweep 2.5s infinite linear;
+    pointer-events: none;
+    box-shadow: 0 0 12px var(--blue);
+}
+@keyframes radar-sweep {
+    0% { top: 0%; }
+    50% { top: 100%; }
+    100% { top: 0%; }
+}
+.log-panel {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    max-height: 120px;
+    overflow-y: auto;
+    font-size: 13px;
+    margin-top: 15px;
+    text-align: left;
+}
+.log-item {
+    padding: 4px 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.log-item:last-child {
+    border-bottom: none;
+}
+</style>
+</head>
 <body>
     <div class="animated-bg"><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
+    
+    <!-- Printable Document Header -->
+    <div class="print-only" style="display:none; font-family:'Inter', sans-serif;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;border-bottom:2px solid #000;padding-bottom:10px">
+            <div style="text-align:left">
+                <h3 style="margin:0;font-size:12px;text-transform:uppercase;font-weight:bold">BỘ GIÁO DỤC VÀ ĐÀO TẠO</h3>
+                <h4 style="margin:2px 0 0 0;font-size:11px;font-weight:normal">TRƯỜNG ĐẠI HỌC CÔNG NGHỆ</h4>
+            </div>
+            <div style="text-align:right">
+                <h4 style="margin:0;font-size:11px;font-weight:bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h4>
+                <h5 style="margin:2px 0 0 0;font-size:9px;font-weight:normal;text-decoration:underline">Độc lập - Tự do - Hạnh phúc</h5>
+            </div>
+        </div>
+        <div style="text-align:center;margin:30px 0 20px 0">
+            <h2 style="margin:0;font-size:18px;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px">BÁO CÁO CHI TIẾT ĐIỂM DANH LỚP HỌC</h2>
+            <p id="printClassInfo" style="margin:8px 0 4px 0;font-size:13px;font-weight:600"></p>
+            <p id="printDateInfo" style="margin:0;font-size:12px;color:#333"></p>
+        </div>
+    </div>
+
     <div class="app">
         <div id="sidebar-root"></div>
         <main class="main">
             <div class="page-top">
-                <div><h1>Điểm danh</h1><p class="desc">Xem và quản lý điểm danh sinh viên</p></div>
+                <div><h1>Điểm danh</h1><p class="desc">Xem, quản lý và thực hiện điểm danh lớp học bằng AI hoặc thủ công</p></div>
                 <div style="display:flex;align-items:center;gap:8px"><span class="dot" id="dot"></span><span style="font-size:12px;color:var(--text-dim)">Realtime</span></div>
             </div>
             <div class="panel">
-                <div class="filters">
-                    <select id="fClass" class="fc" onchange="loadAtt()"><option value="">-- Chọn lớp --</option></select>
+                <div class="filters" style="flex-wrap: wrap; gap: 10px;">
+                    <select id="fClass" class="fc" onchange="loadAtt()" style="min-width: 150px;"><option value="">-- Chọn lớp --</option></select>
                     <input type="date" id="fDate" class="fc" onchange="loadAtt()">
                     <button class="btn btn-primary" onclick="loadAtt()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Xem</button>
                     <button class="btn btn-green" onclick="exportXls()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Xuất Excel</button>
-                    <button class="btn btn-ghost" onclick="exportSum()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Tổng hợp</button>
+                    <button class="btn btn-ghost" onclick="exportSum()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Tổng hợp Excel</button>
+                    <button class="btn btn-red" onclick="exportPDF()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Báo cáo PDF</button>
+                    
+                    <!-- New manual & webcam attendance buttons -->
+                    <button class="btn btn-primary" onclick="openWebcamRecognition()" style="background:var(--blue);border-color:var(--blue)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Điểm danh Webcam Web</button>
+                    <button class="btn btn-ghost" onclick="openManualModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Điểm danh thủ công</button>
                 </div>
             </div>
             <div class="panel">
                 <div class="panel-head"><h2>Danh sách điểm danh</h2><span id="attCount" class="badge badge-info">0 SV</span></div>
-                <div class="tbl-wrap"><table><thead><tr><th>STT</th><th>Mã SV</th><th>Họ và tên</th><th>Thời gian</th><th>Trạng thái</th><th>Độ tin cậy</th></tr></thead>
-                <tbody id="attTbl"><tr><td colspan="6" class="empty"><p>Chọn lớp và ngày để xem</p></td></tr></tbody></table></div>
+                <div class="tbl-wrap"><table><thead><tr><th>STT</th><th>Mã SV</th><th>Họ và tên</th><th>Thời gian</th><th>Trạng thái</th><th>Độ tin cậy</th><th>Sửa</th></tr></thead>
+                <tbody id="attTbl"><tr><td colspan="7" class="empty"><p>Chọn lớp và ngày để xem</p></td></tr></tbody></table></div>
             </div>
             <div class="panel" id="sumPanel" style="display:none">
                 <div class="panel-head"><h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Thống kê tổng hợp</h2></div>
@@ -34,16 +162,272 @@
             </div>
         </main>
     </div>
+
+    <!-- Printable Document Footer -->
+    <div class="print-only" style="display:none;margin-top:50px;font-family:'Inter', sans-serif;">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="text-align:center;width:40%">
+                <p style="margin:0;font-weight:bold;font-size:12px">Người lập báo cáo</p>
+                <p style="margin:2px 0 50px 0;font-style:italic;font-size:10px">(Ký và ghi rõ họ tên)</p>
+            </div>
+            <div style="text-align:center;width:40%">
+                <p id="printSignDate" style="margin:0;font-style:italic;font-size:11px"></p>
+                <p style="margin:4px 0 0 0;font-weight:bold;font-size:12px">Xác nhận của Giảng viên</p>
+                <p style="margin:2px 0 50px 0;font-style:italic;font-size:10px">(Ký và ghi rõ họ tên)</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Webcam Face Recognition (Điểm danh Web) -->
+    <div class="modal-bg" id="webcamRecognitionModal">
+        <div class="modal" style="max-width:480px">
+            <div class="modal-top">
+                <h3>Điểm danh bằng Webcam Web</h3>
+                <button class="modal-x" onclick="closeWebcamRecognition()">✕</button>
+            </div>
+            <div style="text-align:center;margin-bottom:10px">
+                <div class="scanner-container">
+                    <video id="scanWebcam" autoplay playsinline style="width:100%;display:block;transform:scaleX(-1)"></video>
+                    <canvas id="scanCanvas" style="display:none"></canvas>
+                    <div class="scanner-laser" id="laser"></div>
+                </div>
+            </div>
+            <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:13px;font-weight:600" id="scanClassText">Lớp học: </span>
+                <span class="badge badge-info" id="scanStatusBadge">Quét tự động</span>
+            </div>
+            <div class="log-panel" id="scanLogs">
+                <div style="color:var(--text-dim);font-style:italic">Bắt đầu camera quét khuôn mặt...</div>
+            </div>
+            <div class="modal-btns">
+                <button class="btn btn-ghost" onclick="closeWebcamRecognition()">Dừng điểm danh</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Manual Attendance (Điểm danh thủ công) -->
+    <div class="modal-bg" id="manualModal">
+        <div class="modal" style="max-width:400px">
+            <div class="modal-top">
+                <h3>Ghi nhận điểm danh thủ công</h3>
+                <button class="modal-x" onclick="closeModal('manualModal')">✕</button>
+            </div>
+            <form onsubmit="saveManualAttendance(event)">
+                <div class="fg">
+                    <label>Sinh viên *</label>
+                    <select id="mStudent" class="fc" required>
+                        <option value="">-- Chọn sinh viên --</option>
+                    </select>
+                </div>
+                <div class="fg">
+                    <label>Trạng thái *</label>
+                    <select id="mStatus" class="fc" required>
+                        <option value="present">Có mặt</option>
+                        <option value="late">Đi trễ</option>
+                        <option value="absent">Vắng</option>
+                    </select>
+                </div>
+                <div class="modal-btns">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('manualModal')">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Ghi nhận</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="/web/js/app.js"></script><script src="/web/js/sidebar.js"></script>
     <script>
+        let scanStream = null, scanInterval = null;
         document.addEventListener('DOMContentLoaded',()=>{document.getElementById('fDate').value=new Date().toISOString().split('T')[0];loadCls()});
         async function loadCls(){try{const c=await apiCall('/api/classes');const s=document.getElementById('fClass');c.forEach(x=>{const o=document.createElement('option');o.value=x.id;o.textContent=`${x.class_code} - ${x.class_name}`;s.appendChild(o)})}catch(e){}}
+        
         async function loadAtt(){const cid=document.getElementById('fClass').value,dt=document.getElementById('fDate').value;if(!cid){showToast('Chọn lớp!','warning');return}
-            try{let url=`/api/attendance?class_id=${cid}`;if(dt)url+=`&date=${dt}`;const d=await apiCall(url);document.getElementById('attCount').textContent=`${d.length} SV`;const t=document.getElementById('attTbl');if(!d.length){t.innerHTML='<tr><td colspan="6" class="empty"><p>Không có dữ liệu</p></td></tr>';return}
-                t.innerHTML=d.map((a,i)=>`<tr><td>${i+1}</td><td><strong>${a.student_code}</strong></td><td>${a.full_name}</td><td>${fmtDateTime(a.check_in_time)}</td><td>${statusBadge(a.status)}</td><td><span class="badge badge-info">${(a.confidence*100).toFixed(0)}%</span></td></tr>`).join('');loadSum(cid)}catch(e){showToast('Lỗi','error')}}
+            try{let url=`/api/attendance?class_id=${cid}`;if(dt)url+=`&date=${dt}`;const d=await apiCall(url);document.getElementById('attCount').textContent=`${d.length} SV`;const t=document.getElementById('attTbl');if(!d.length){t.innerHTML='<tr><td colspan="7" class="empty"><p>Không có dữ liệu</p></td></tr>';return}
+                t.innerHTML=d.map((a,i)=>`<tr>
+                    <td>${i+1}</td>
+                    <td><strong>${a.student_code}</strong></td>
+                    <td>${a.full_name}</td>
+                    <td>${fmtDateTime(a.check_in_time)}</td>
+                    <td>${statusBadge(a.status)}</td>
+                    <td><span class="badge badge-info">${(a.confidence*100).toFixed(0)}%</span></td>
+                    <td><button class="btn btn-ghost btn-sm" onclick="editManual(${a.student_id}, '${a.status}')" title="Sửa trạng thái"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></td>
+                </tr>`).join('');
+                loadSum(cid);
+            }catch(e){showToast('Lỗi','error')}}
+        
         async function loadSum(cid){try{const d=await apiCall(`/api/attendance/summary?class_id=${cid}`);if(!d.length)return;document.getElementById('sumPanel').style.display='block';document.getElementById('sumTbl').innerHTML=d.map((s,i)=>{const tot=s.total_sessions||0,att=s.total_attended||0,rate=tot>0?((att/tot)*100).toFixed(0):0;const cls=rate>=80?'badge-ok':rate>=50?'badge-warn':'badge-err';return`<tr><td>${i+1}</td><td>${s.student_code}</td><td>${s.full_name}</td><td>${s.present_count||0}</td><td>${s.late_count||0}</td><td>${tot}</td><td><span class="badge ${cls}">${rate}%</span></td></tr>`}).join('')}catch(e){}}
         async function exportXls(){const cid=document.getElementById('fClass').value,dt=document.getElementById('fDate').value;if(!cid){showToast('Chọn lớp!','warning');return}try{let url=`/api/export/attendance?class_id=${cid}`;if(dt)url+=`&date=${dt}`;const r=await fetch(url);if(!r.ok){const e=await r.json();throw new Error(e.detail)}const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`diemdanh_${dt||'all'}.xlsx`;a.click();showToast('Xuất thành công!','success')}catch(e){showToast(e.message||'Lỗi','error')}}
         async function exportSum(){const cid=document.getElementById('fClass').value;if(!cid){showToast('Chọn lớp!','warning');return}try{const r=await fetch(`/api/export/summary?class_id=${cid}`);if(!r.ok){const e=await r.json();throw new Error(e.detail)}const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tonghop.xlsx';a.click();showToast('Xuất thành công!','success')}catch(e){showToast(e.message||'Lỗi','error')}}
+
+        function exportPDF() {
+            const cid = document.getElementById('fClass').value;
+            if (!cid) {
+                showToast('Vui lòng chọn lớp học để xuất báo cáo!', 'warning');
+                return;
+            }
+            const classSel = document.getElementById('fClass');
+            const className = classSel.options[classSel.selectedIndex].text;
+            const dateVal = document.getElementById('fDate').value;
+            
+            document.getElementById('printClassInfo').textContent = 'Lớp học: ' + className;
+            document.getElementById('printDateInfo').textContent = 'Ngày điểm danh: ' + (dateVal ? fmtDate(dateVal) : 'Tất cả');
+            
+            const today = new Date();
+            document.getElementById('printSignDate').textContent = `Ngày ${today.getDate()} tháng ${today.getMonth() + 1} năm ${today.getFullYear()}`;
+            
+            window.print();
+        }
+
+        // ===== DIEM DANH THU CONG =====
+        async function openManualModal() {
+            const cid = document.getElementById('fClass').value;
+            if (!cid) {
+                showToast('Vui lòng chọn lớp học trước!', 'warning');
+                return;
+            }
+            const classSel = document.getElementById('fClass');
+            const className = classSel.options[classSel.selectedIndex].text;
+            
+            const select = document.getElementById('mStudent');
+            select.innerHTML = '<option value="">-- Đang tải sinh viên --</option>';
+
+            openModal('manualModal');
+
+            try {
+                const students = await apiCall(`/api/classes/${cid}/students`);
+                if (!students.length) {
+                    select.innerHTML = '<option value="">-- Lớp không có sinh viên --</option>';
+                    return;
+                }
+                select.innerHTML = '<option value="">-- Chọn sinh viên --</option>' + 
+                    students.map(s => `<option value="${s.id}">${s.student_code} - ${s.full_name}</option>`).join('');
+            } catch(e) {
+                select.innerHTML = '<option value="">-- Lỗi tải dữ liệu --</option>';
+            }
+        }
+
+        async function saveManualAttendance(e) {
+            e.preventDefault();
+            const cid = document.getElementById('fClass').value;
+            const sid = document.getElementById('mStudent').value;
+            const status = document.getElementById('mStatus').value;
+            const dt = document.getElementById('fDate').value;
+
+            try {
+                await apiCall('/api/attendance/manual', 'POST', {
+                    student_id: parseInt(sid),
+                    class_id: parseInt(cid),
+                    status: status,
+                    date: dt || null
+                });
+                showToast('Ghi nhận thành công!', 'success');
+                closeModal('manualModal');
+                await loadAtt();
+            } catch(e) {
+                showToast(e.message || 'Lỗi', 'error');
+            }
+        }
+
+        function editManual(studentId, currentStatus) {
+            document.getElementById('mStudent').innerHTML = `<option value="${studentId}" selected>Sinh viên đang chọn</option>`;
+            document.getElementById('mStudent').disabled = true;
+            document.getElementById('mStatus').value = currentStatus;
+            openModal('manualModal');
+        }
+
+        // ===== DIEM DANH WEBCAM WEB =====
+        async function openWebcamRecognition() {
+            const cid = document.getElementById('fClass').value;
+            if (!cid) {
+                showToast('Vui lòng chọn lớp học trước!', 'warning');
+                return;
+            }
+            const classSel = document.getElementById('fClass');
+            const className = classSel.options[classSel.selectedIndex].text;
+            
+            document.getElementById('scanClassText').textContent = 'Lớp học: ' + className.split(' - ')[0];
+            const logs = document.getElementById('scanLogs');
+            logs.innerHTML = '<div style="color:var(--text-dim);font-style:italic">Đang khởi động webcam...</div>';
+
+            openModal('webcamRecognitionModal');
+
+            try {
+                scanStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+                document.getElementById('scanWebcam').srcObject = scanStream;
+                logs.innerHTML += '<div style="color:var(--green)">✓ Webcam hoạt động. Bắt đầu nhận diện AI...</div>';
+                
+                // Start continuous capture cycle
+                startScanning(cid);
+            } catch(e) {
+                showToast('Không thể truy cập webcam: ' + e.message, 'error');
+                closeWebcamRecognition();
+            }
+        }
+
+        function closeWebcamRecognition() {
+            closeModal('webcamRecognitionModal');
+            if (scanInterval) {
+                clearInterval(scanInterval);
+                scanInterval = null;
+            }
+            if (scanStream) {
+                scanStream.getTracks().forEach(track => track.stop());
+                scanStream = null;
+            }
+            loadAtt();
+        }
+
+        function startScanning(classId) {
+            const video = document.getElementById('scanWebcam');
+            const canvas = document.getElementById('scanCanvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 640;
+            canvas.height = 480;
+            const logs = document.getElementById('scanLogs');
+
+            scanInterval = setInterval(async () => {
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                ctx.setTransform(1, 0, 0, 1, 0, 0); // reset scale/translation
+                
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                
+                try {
+                    const response = await apiCall('/api/attendance/recognize-frame', 'POST', {
+                        image: dataUrl,
+                        class_id: parseInt(classId)
+                    });
+                    
+                    if (response.recognized) {
+                        response.results.forEach(res => {
+                            if (res.already_marked) {
+                                const dateStr = new Date().toLocaleTimeString('vi-VN');
+                                const div = document.createElement('div');
+                                div.className = 'log-item';
+                                div.innerHTML = `<span style="color:var(--text-dim)">• ${res.full_name} (Đã điểm danh)</span><span style="font-size:11px;color:var(--text-dim)">${dateStr}</span>`;
+                                logs.insertBefore(div, logs.firstChild);
+                                return;
+                            }
+                            const dateStr = new Date().toLocaleTimeString('vi-VN');
+                            const div = document.createElement('div');
+                            div.className = 'log-item';
+                            div.innerHTML = `<span style="color:var(--green);font-weight:600">✓ ${res.full_name} (${res.student_code})</span><span style="font-size:11px;color:var(--text-dim)">${dateStr} • ${(res.confidence*100).toFixed(0)}%</span>`;
+                            logs.insertBefore(div, logs.firstChild);
+                            showToast(`Đã điểm danh: ${res.full_name}`, 'success');
+                        });
+                    } else {
+                        // log scanning state
+                        const div = document.createElement('div');
+                        div.className = 'log-item';
+                        div.innerHTML = `<span style="color:var(--text-dim)">Quét: ${response.message}</span>`;
+                        logs.insertBefore(div, logs.firstChild);
+                    }
+                } catch(e) {
+                    console.error("Frame recognition error: ", e);
+                }
+            }, 1800);
+        }
     </script>
 </body>
 </html>

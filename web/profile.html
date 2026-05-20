@@ -43,10 +43,8 @@
         document.addEventListener('DOMContentLoaded', loadProfile);
         async function loadProfile(){
             try{
-                const token=localStorage.getItem('token');
-                const r=await fetch(`/api/auth/me?token=${token}`);
-                if(!r.ok)throw new Error();
-                const u=await r.json();
+                const u = await apiCall('/api/auth/me');
+                if(!u) throw new Error();
                 document.getElementById('pUser').value=u.username||'';
                 document.getElementById('pRole').value=u.role==='admin'?'Quản trị viên':'Giảng viên';
                 document.getElementById('pName').value=u.full_name||'';
@@ -56,24 +54,22 @@
         async function saveProfile(e){
             e.preventDefault();
             try{
-                const token=localStorage.getItem('token');
-                const r=await fetch(`/api/auth/profile?token=${token}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-                    full_name:document.getElementById('pName').value,
-                    email:document.getElementById('pEmail').value
-                })});
-                const d=await r.json();
-                if(r.ok){
-                    showToast('Cập nhật thành công!','success');
-                    // Cập nhật localStorage
-                    const user=JSON.parse(localStorage.getItem('user')||'{}');
-                    user.full_name=document.getElementById('pName').value;
-                    user.email=document.getElementById('pEmail').value;
-                    localStorage.setItem('user',JSON.stringify(user));
-                    // Cập nhật sidebar
-                    const nameEl=document.getElementById('userName');
-                    if(nameEl)nameEl.textContent=user.full_name;
-                }else{showToast(d.detail||'Lỗi','error');}
-            }catch(e){showToast('Lỗi kết nối','error');}
+                const name = document.getElementById('pName').value;
+                const email = document.getElementById('pEmail').value;
+                await apiCall('/api/auth/profile', 'PUT', {
+                    full_name: name,
+                    email: email
+                });
+                showToast('Cập nhật thành công!','success');
+                // Cập nhật localStorage
+                const user=JSON.parse(localStorage.getItem('user')||'{}');
+                user.full_name=name;
+                user.email=email;
+                localStorage.setItem('user',JSON.stringify(user));
+                // Cập nhật sidebar
+                const nameEl=document.getElementById('userName');
+                if(nameEl)nameEl.textContent=user.full_name;
+            }catch(e){showToast(e.message || 'Lỗi','error');}
         }
         async function changePw(e){
             e.preventDefault();
@@ -81,15 +77,13 @@
             if(pw1!==pw2){showToast('Mật khẩu mới không khớp!','error');return;}
             if(pw1.length<6){showToast('Mật khẩu mới phải từ 6 ký tự!','error');return;}
             try{
-                const token=localStorage.getItem('token');
-                const r=await fetch(`/api/auth/password?token=${token}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+                await apiCall('/api/auth/password', 'PUT', {
                     old_password:document.getElementById('pwOld').value,
                     new_password:pw1
-                })});
-                const d=await r.json();
-                if(r.ok){showToast('Đổi mật khẩu thành công!','success');document.getElementById('pwForm').reset();}
-                else{showToast(d.detail||'Lỗi','error');}
-            }catch(e){showToast('Lỗi kết nối','error');}
+                });
+                showToast('Đổi mật khẩu thành công!','success');
+                document.getElementById('pwForm').reset();
+            }catch(e){showToast(e.message || 'Lỗi','error');}
         }
     </script>
 </body>

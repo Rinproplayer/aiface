@@ -24,10 +24,18 @@ function renderSidebar(activePage) {
     const roleName = isAdmin ? 'Quản trị viên' : 'Giảng viên';
     const displayName = user.full_name || 'Giảng viên';
 
+    const isLightTheme = localStorage.getItem('theme') === 'light';
+    const themeIcon = isLightTheme 
+        ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>` // Moon icon
+        : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`; // Sun icon
+
     return `<aside class="sidebar">
         <div class="brand">
             <div class="brand-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"/></svg></div>
             <h2>AI Attendance</h2>
+            <button class="theme-toggle" onclick="toggleTheme()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;margin-left:auto;display:flex;align-items:center;justify-content:center;padding:6px;border-radius:8px;transition:var(--transition)" title="Chuyển chế độ sáng/tối">
+                ${themeIcon}
+            </button>
         </div>
         <nav>${navHtml}</nav>
         <div class="sidebar-footer">
@@ -42,6 +50,22 @@ function renderSidebar(activePage) {
         </div>
     </aside>`;
 }
+
+function toggleTheme() {
+    const isLight = document.body.classList.toggle('light-theme');
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    // Refresh sidebar to update icon
+    const sb = document.getElementById('sidebar-root');
+    if (sb) sb.innerHTML = renderSidebar(location.pathname);
+}
+
+// Apply theme instantly on load before DOMContentLoaded to prevent flicker
+(function() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-theme');
+    }
+})();
 
 /* Auto-insert sidebar */
 document.addEventListener('DOMContentLoaded', () => {

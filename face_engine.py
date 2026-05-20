@@ -30,6 +30,23 @@ from config import (
 HAAR_CASCADE = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 
 
+def safe_print(message, end="\n"):
+    """In log an toàn, tự động loại bỏ ký tự unicode nếu console không hỗ trợ"""
+    try:
+        print(message, end=end)
+    except UnicodeEncodeError:
+        try:
+            import unicodedata
+            normalized = unicodedata.normalize('NFKD', message)
+            ascii_msg = "".join([c for c in normalized if not unicodedata.combining(c)])
+            print(ascii_msg.encode('ascii', 'ignore').decode('ascii'), end=end)
+        except Exception:
+            try:
+                print(message.encode('ascii', 'ignore').decode('ascii'), end=end)
+            except Exception:
+                pass
+
+
 def preprocess_frame(frame):
     """
     Tiền xử lý ảnh để cải thiện nhận diện:
@@ -145,7 +162,7 @@ class FaceEngine:
             print("Khong co du lieu sinh vien trong dataset/")
             return False
 
-        print(f"Bat dau train {len(student_dirs)} sinh vien...")
+        safe_print(f"Bat dau train {len(student_dirs)} sinh vien...")
 
         for student_dir in student_dirs:
             parts = student_dir.split("_", 1)
@@ -156,7 +173,7 @@ class FaceEngine:
             image_files = [f for f in os.listdir(student_path)
                            if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
 
-            print(f"  {student_name} ({student_code}): {len(image_files)} anh", end="")
+            safe_print(f"  {student_name} ({student_code}): {len(image_files)} anh", end="")
 
             face_count = 0
             for img_file in image_files:
@@ -196,10 +213,10 @@ class FaceEngine:
                         face_count += 1
 
             status = f" -> {face_count} khuon mat OK" if face_count > 0 else " -> KHONG TIM THAY khuon mat"
-            print(status)
+            safe_print(status)
 
         if not encodings:
-            print("Khong encode duoc khuon mat nao!")
+            safe_print("Khong encode duoc khuon mat nao!")
             return False
 
         # Lưu file encoding
@@ -218,7 +235,7 @@ class FaceEngine:
         self.is_loaded = True
 
         unique = len(set(student_codes))
-        print(f"\nTrain hoan tat! {len(encodings)} encoding cua {unique} sinh vien")
+        safe_print(f"\nTrain hoan tat! {len(encodings)} encoding cua {unique} sinh vien")
         return True
 
     def detect_faces(self, frame):
@@ -272,9 +289,15 @@ class FaceEngine:
         # Chuyển BGR → RGB
         rgb_frame = cv2.cvtColor(enhanced, cv2.COLOR_BGR2RGB)
 
-        # Thu nhỏ 75% (giữ nhiều chi tiết hơn so với 50%)
-        scale = 0.75
-        small_frame = cv2.resize(rgb_frame, (0, 0), fx=scale, fy=scale)
+        # Tự động tính toán tỉ lệ scale phù hợp: Chỉ scale nếu ảnh quá to (ví dụ > 800px)
+        # Giúp bảo toàn độ sắc nét tối đa cho các webcam chuẩn 640x480
+        h, w = rgb_frame.shape[:2]
+        if w > 800:
+            scale = 800.0 / w
+            small_frame = cv2.resize(rgb_frame, (0, 0), fx=scale, fy=scale)
+        else:
+            scale = 1.0
+            small_frame = rgb_frame
 
         # Phát hiện khuôn mặt
         face_locations = face_recognition.face_locations(
@@ -284,7 +307,10 @@ class FaceEngine:
 
         # Fallback: Haar Cascade nếu không tìm thấy
         if not face_locations:
-            small_bgr = cv2.resize(enhanced, (0, 0), fx=scale, fy=scale)
+            if scale != 1.0:
+                small_bgr = cv2.resize(enhanced, (0, 0), fx=scale, fy=scale)
+            else:
+                small_bgr = enhanced
             haar_locs = detect_faces_haar(small_bgr)
             if haar_locs:
                 face_locations = haar_locs
@@ -300,7 +326,7 @@ class FaceEngine:
             return []
 
         # Encode khuôn mặt đã tìm thấy
-        face_encodings = face_recognition.face_encodings(small_frame, face_locations, num_jitters=1)
+        face_encodings = face_recognition.face_recognition.face_encodings(small_frame, face_locations, num_jitters=1) if hasattr(face_recognition, 'face_recognition') else face_recognition.face_encodings(small_frame, face_locations, num_jitters=1)
 
         results = []
         inv_scale = 1.0 / scale
@@ -322,25 +348,6 @@ class FaceEngine:
                     student_code = self.known_student_codes[best_match_idx]
                     name = self.known_names[best_match_idx]
                     confidence = round(1 - best_distance, 2)
-
-                    # Voting: đếm xem code này xuất hiện bao nhiêu lần
-                    # trong top matches để tăng độ tin cậy
-                    threshold_matches = distances <= FACE_RECOGNITION_TOLERANCE
-                    if np.sum(threshold_matches) > 1:
-                        matching_codes = [self.known_student_codes[i]
-                                          for i in range(len(distances))
-                                          if threshold_matches[i]]
-                        # Lấy code phổ biến nhất
-                        from collections import Counter
-                        code_counts = Counter(matching_codes)
-                        most_common_code, count = code_counts.most_common(1)[0]
-                        if count > 1:
-                            student_code = most_common_code
-                            # Tìm tên tương ứng
-                            for i, sc in enumerate(self.known_student_codes):
-                                if sc == most_common_code:
-                                    name = self.known_names[i]
-                                    break
 
                     # Cập nhật lịch sử nhận diện (ổn định kết quả)
                     self._recognition_history[student_code] = \

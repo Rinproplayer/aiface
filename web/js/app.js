@@ -6,9 +6,15 @@ function logout(){localStorage.clear();window.location.href='/'}
 function setupUser(){const u=getUser();if(u){const el=document.getElementById('userName');if(el)el.textContent=u.full_name||u.username}}
 
 async function apiCall(url,method='GET',body=null){
+    const token = getToken();
+    let finalUrl = API + url;
+    if (token) {
+        const separator = finalUrl.includes('?') ? '&' : '?';
+        finalUrl += separator + 'token=' + encodeURIComponent(token);
+    }
     const o={method,headers:{'Content-Type':'application/json'}};
     if(body)o.body=JSON.stringify(body);
-    const r=await fetch(API+url,o);
+    const r=await fetch(finalUrl,o);
     if(r.status===401){logout();return null}
     const ct=r.headers.get('content-type');
     if(ct&&ct.includes('application/json')){const d=await r.json();if(!r.ok)throw new Error(d.detail||'Lỗi');return d}
