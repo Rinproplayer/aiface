@@ -9,6 +9,15 @@ Cải thiện:
 """
 
 import os
+import sys
+# Cấu hình encoding UTF-8 cho Windows console
+if sys.platform.startswith('win'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
+
 import cv2
 import time
 from config import DATASET_DIR, NUM_PHOTOS_PER_STUDENT, CAMERA_INDEX

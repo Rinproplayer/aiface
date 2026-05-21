@@ -325,3 +325,316 @@ body.light-theme .class-card:hover {
     box-shadow: 0 8px 30px rgba(0,0,0,0.06);
 }
 
+/* ===== PORTAL WELCOME BANNER ===== */
+.welcome-banner {
+    background: linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.12) 100%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: var(--radius);
+    padding: 24px 30px;
+    margin-bottom: 28px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: var(--shadow);
+}
+.welcome-content {
+    z-index: 2;
+}
+.welcome-badge {
+    display: inline-flex;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: var(--blue-glow);
+    color: var(--blue);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(99,102,241,0.2);
+}
+.welcome-title {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+    background: linear-gradient(to right, #ffffff, #eaeaf5);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+body.light-theme .welcome-title {
+    background: linear-gradient(to right, var(--text), #4a4a6a);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.welcome-desc {
+    font-size: 13px;
+    color: var(--text-dim);
+}
+.welcome-desc span {
+    font-weight: 600;
+    color: var(--text);
+}
+.welcome-decor {
+    position: absolute;
+    right: -20px;
+    top: -50px;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--blue-glow) 0%, transparent 70%);
+    filter: blur(20px);
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* ===== WEEKLY TIMETABLE GRID ===== */
+.timetable-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    margin-top: 8px;
+}
+.timetable-day {
+    background: rgba(255,255,255,0.015);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 10px;
+    min-height: 190px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: var(--transition);
+}
+.timetable-day.today-highlight {
+    background: rgba(99,102,241,0.03);
+    border-color: rgba(99,102,241,0.4);
+    box-shadow: 0 0 15px rgba(99,102,241,0.08);
+}
+.timetable-day-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.timetable-day.today-highlight .timetable-day-title {
+    color: var(--blue);
+}
+.timetable-class-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--text-dim);
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    transition: var(--transition);
+}
+.timetable-class-card:hover {
+    transform: translateY(-2px);
+    background: rgba(99,102,241,0.08);
+    border-left-color: var(--blue);
+    box-shadow: 0 4px 12px var(--blue-glow);
+}
+.timetable-class-time {
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.timetable-class-name {
+    font-weight: 600;
+    color: var(--text-dim);
+    line-height: 1.25;
+    margin-bottom: 4px;
+}
+.timetable-class-room {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.timetable-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-style: italic;
+    text-align: center;
+    padding: 20px 0;
+}
+
+/* ===== EVIDENCE SNAPSHOT & LIGHTBOX ===== */
+.evidence-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.evidence-thumb {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    object-fit: cover;
+    cursor: pointer;
+    border: 2px solid var(--border);
+    transition: var(--transition);
+    background: rgba(0,0,0,0.2);
+}
+.evidence-thumb:hover {
+    transform: scale(1.15);
+    border-color: var(--blue);
+    box-shadow: 0 0 10px var(--blue-glow);
+}
+.evidence-none {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-style: italic;
+}
+.lightbox-img-wrapper {
+    position: relative;
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    margin: 15px auto;
+    background: #000;
+}
+.lightbox-img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+.lightbox-meta {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: left;
+    margin-top: 15px;
+}
+.lightbox-meta-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+.lightbox-meta-row:last-child {
+    margin-bottom: 0;
+}
+.lightbox-meta-label {
+    color: var(--text-dim);
+    font-weight: 500;
+}
+.lightbox-meta-val {
+    color: var(--text);
+    font-weight: 600;
+}
+
+/* ===== ABSENCE WARNING BANNER & BADGES ===== */
+.warnings-banner {
+    background: rgba(239,68,68,0.07);
+    border: 1px solid rgba(239,68,68,0.15);
+    border-left: 4px solid var(--red);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    box-shadow: 0 4px 15px rgba(239,68,68,0.05);
+}
+.warnings-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.warnings-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: rgba(239,68,68,0.12);
+    color: var(--red);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.warnings-text {
+    display: flex;
+    flex-direction: column;
+}
+.warnings-title {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--red);
+}
+.warnings-desc {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-top: 2px;
+}
+.warnings-btn {
+    background: rgba(239,68,68,0.1);
+    color: var(--red);
+    border: 1px solid rgba(239,68,68,0.2);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+.warnings-btn:hover {
+    background: var(--red);
+    color: #fff;
+}
+.student-warn-badge {
+    color: var(--red);
+    font-weight: 700;
+    font-size: 11px;
+    background: rgba(239,68,68,0.12);
+    border: 1px solid rgba(239,68,68,0.2);
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+@media(max-width: 900px) {
+    .timetable-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+@media(max-width: 600px) {
+    .timetable-grid {
+        grid-template-columns: 1fr;
+    }
+    .welcome-banner {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 20px;
+    }
+    .warnings-banner {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .warnings-btn {
+        align-self: flex-end;
+    }
+}
+

@@ -1,6 +1,39 @@
 <!DOCTYPE html>
 <html lang="vi">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Lớp học - AI Face Attendance</title><link rel="stylesheet" href="/web/css/style.css"></head>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Lớp học - AI Face Attendance</title>
+    <link rel="stylesheet" href="/web/css/style.css">
+    <style>
+        .day-btn {
+            flex: 1;
+            min-width: 40px;
+            padding: 8px 0;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text-dim);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            outline: none;
+            text-align: center;
+        }
+        .day-btn:hover {
+            border-color: var(--border-focus);
+            color: var(--text);
+            background: var(--bg-card-hover);
+        }
+        .day-btn.active {
+            background: var(--grad-blue) !important;
+            color: #ffffff !important;
+            border-color: transparent !important;
+            box-shadow: 0 0 12px var(--blue-glow) !important;
+        }
+    </style>
+</head>
 <body>
     <div class="animated-bg"><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
     <div class="app">
@@ -67,8 +100,62 @@
             <div class="fg"><label>Tên lớp *</label><input type="text" id="cName" class="fc" required placeholder="VD: Nhập môn Lập trình"></div>
             <div class="fg"><label>Giảng viên</label><select id="cLec" class="fc"><option value="">-- Chọn giảng viên --</option></select></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                <div class="fg"><label>Lịch học</label><input type="text" id="cSched" class="fc" placeholder="VD: T2-T4, 7:30"></div>
                 <div class="fg"><label>Phòng</label><input type="text" id="cRoom" class="fc" placeholder="VD: A101"></div>
+            </div>
+            
+            <div class="fg" style="margin-top: -6px; margin-bottom: 16px;">
+                <label>Lịch học</label>
+                <input type="hidden" id="cSched">
+                <!-- Day selector buttons grid -->
+                <div class="day-selector-grid" style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;">
+                    <button type="button" class="day-btn" data-day="Thứ 2">T2</button>
+                    <button type="button" class="day-btn" data-day="Thứ 3">T3</button>
+                    <button type="button" class="day-btn" data-day="Thứ 4">T4</button>
+                    <button type="button" class="day-btn" data-day="Thứ 5">T5</button>
+                    <button type="button" class="day-btn" data-day="Thứ 6">T6</button>
+                    <button type="button" class="day-btn" data-day="Thứ 7">T7</button>
+                </div>
+                <!-- Time range selection by Period -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label style="font-size: 11px; color: var(--text-dim); display: block; margin-bottom: 4px;">Tiết bắt đầu</label>
+                        <select id="cSchedPeriodStart" class="fc" style="padding: 6px 12px; font-size: 13px;">
+                            <optgroup label="Sáng">
+                                <option value="1">Tiết 1 (07:30)</option>
+                                <option value="2">Tiết 2 (08:30)</option>
+                                <option value="3">Tiết 3 (09:30)</option>
+                                <option value="4">Tiết 4 (10:30)</option>
+                                <option value="5">Tiết 5 (11:30)</option>
+                            </optgroup>
+                            <optgroup label="Chiều">
+                                <option value="6">Tiết 6 (13:00)</option>
+                                <option value="7">Tiết 7 (14:00)</option>
+                                <option value="8">Tiết 8 (15:00)</option>
+                                <option value="9">Tiết 9 (16:00)</option>
+                                <option value="10">Tiết 10 (17:00)</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: var(--text-dim); display: block; margin-bottom: 4px;">Tiết kết thúc</label>
+                        <select id="cSchedPeriodEnd" class="fc" style="padding: 6px 12px; font-size: 13px;">
+                            <optgroup label="Sáng">
+                                <option value="1">Tiết 1 (08:20)</option>
+                                <option value="2">Tiết 2 (09:20)</option>
+                                <option value="3">Tiết 3 (10:20)</option>
+                                <option value="4">Tiết 4 (11:20)</option>
+                                <option value="5">Tiết 5 (12:20)</option>
+                            </optgroup>
+                            <optgroup label="Chiều">
+                                <option value="6">Tiết 6 (13:50)</option>
+                                <option value="7">Tiết 7 (14:50)</option>
+                                <option value="8">Tiết 8 (15:50)</option>
+                                <option value="9">Tiết 9 (16:50)</option>
+                                <option value="10">Tiết 10 (17:50)</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
             </div>
             <div class="modal-btns"><button type="button" class="btn btn-ghost" onclick="closeModal('cModal')">Hủy</button><button type="submit" class="btn btn-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Lưu</button></div>
         </form>
@@ -86,7 +173,271 @@
     <script>
         let classes=[],selCid=null,selClass=null,allStudents=[];
 
-        document.addEventListener('DOMContentLoaded',()=>{loadC();loadLec()});
+        document.addEventListener('DOMContentLoaded',()=>{loadC();loadLec();initDaySelector();});
+
+        // ===== SCHEDULE INTERACTION HELPER METHODS =====
+        function initDaySelector() {
+            const btns = document.querySelectorAll('.day-btn');
+            btns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    btn.classList.toggle('active');
+                    updateScheduleHiddenInput();
+                });
+            });
+
+            const startSelect = document.getElementById('cSchedPeriodStart');
+            const endSelect = document.getElementById('cSchedPeriodEnd');
+
+            startSelect.addEventListener('change', () => {
+                const startVal = parseInt(startSelect.value);
+                const endVal = parseInt(endSelect.value);
+                if (startVal > endVal) {
+                    endSelect.value = startVal;
+                }
+                updateScheduleHiddenInput();
+            });
+
+            endSelect.addEventListener('change', () => {
+                const startVal = parseInt(startSelect.value);
+                const endVal = parseInt(endSelect.value);
+                if (endVal < startVal) {
+                    startSelect.value = endVal;
+                }
+                updateScheduleHiddenInput();
+            });
+        }
+
+        function updateScheduleHiddenInput() {
+            const activeIndices = [];
+            const btns = document.querySelectorAll('.day-btn');
+            btns.forEach((btn, idx) => {
+                if (btn.classList.contains('active')) {
+                    activeIndices.push(idx);
+                }
+            });
+
+            if (activeIndices.length === 0) {
+                document.getElementById('cSched').value = '';
+                return;
+            }
+
+            const daysStr = formatSelectedDays(activeIndices);
+            const startPeriod = parseInt(document.getElementById('cSchedPeriodStart').value);
+            const endPeriod = parseInt(document.getElementById('cSchedPeriodEnd').value);
+            
+            const periodsMap = {
+                1: { start: '07:30', end: '08:20' },
+                2: { start: '08:30', end: '09:20' },
+                3: { start: '09:30', end: '10:20' },
+                4: { start: '10:30', end: '11:20' },
+                5: { start: '11:30', end: '12:20' },
+                6: { start: '13:00', end: '13:50' },
+                7: { start: '14:00', end: '14:50' },
+                8: { start: '15:00', end: '15:50' },
+                9: { start: '16:00', end: '16:50' },
+                10: { start: '17:00', end: '17:50' }
+            };
+
+            const startTime = periodsMap[startPeriod].start;
+            const endTime = periodsMap[endPeriod].end;
+            
+            let timeStr = '';
+            if (startPeriod === endPeriod) {
+                timeStr = `Tiết ${startPeriod} (${startTime} - ${endTime})`;
+            } else {
+                timeStr = `Tiết ${startPeriod} - ${endPeriod} (${startTime} - ${endTime})`;
+            }
+            
+            document.getElementById('cSched').value = `${daysStr}, ${timeStr}`;
+        }
+
+        function formatSelectedDays(selectedIndices) {
+            if (selectedIndices.length === 0) return '';
+            const dayNames = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+            selectedIndices.sort((a, b) => a - b);
+            
+            let isContinuous = true;
+            for (let i = 1; i < selectedIndices.length; i++) {
+                if (selectedIndices[i] !== selectedIndices[i - 1] + 1) {
+                    isContinuous = false;
+                    break;
+                }
+            }
+            
+            if (isContinuous && selectedIndices.length >= 2) {
+                return `${dayNames[selectedIndices[0]]} - ${dayNames[selectedIndices[selectedIndices.length - 1]]}`;
+            } else {
+                return selectedIndices.map(idx => dayNames[idx]).join(', ');
+            }
+        }
+
+        function loadScheduleToUI(schedStr) {
+            const btns = document.querySelectorAll('.day-btn');
+            btns.forEach(btn => btn.classList.remove('active'));
+
+            const { activeDays, startPeriod, endPeriod } = parseSchedule(schedStr);
+
+            activeDays.forEach(idx => {
+                if (btns[idx]) {
+                    btns[idx].classList.add('active');
+                }
+            });
+
+            document.getElementById('cSchedPeriodStart').value = startPeriod;
+            document.getElementById('cSchedPeriodEnd').value = endPeriod;
+            document.getElementById('cSched').value = schedStr || '';
+        }
+
+        function parseSchedule(schedStr) {
+            const activeDays = new Set();
+            let startPeriod = 1;
+            let endPeriod = 3;
+
+            if (!schedStr || schedStr === 'Chưa có lịch' || schedStr === '—') {
+                return { activeDays, startPeriod, endPeriod };
+            }
+
+            function normalizeStr(str) {
+                return str.toLowerCase()
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .replace(/đ/g, "d")
+                    .trim();
+            }
+
+            function getDayIdx(str) {
+                const s = normalizeStr(str);
+                if (s.includes('thu 2') || s.includes('t2') || s.includes('hai')) return 0;
+                if (s.includes('thu 3') || s.includes('t3') || s.includes('ba')) return 1;
+                if (s.includes('thu 4') || s.includes('t4') || s.includes('tu')) return 2;
+                if (s.includes('thu 5') || s.includes('t5') || s.includes('nam')) return 3;
+                if (s.includes('thu 6') || s.includes('t6') || s.includes('sau')) return 4;
+                if (s.includes('thu 7') || s.includes('t7') || s.includes('bay')) return 5;
+                return -1;
+            }
+
+            function mapTimeToStartPeriod(timeStr) {
+                const t = timeStr.trim();
+                if (t.startsWith('07:30') || t.startsWith('07h30')) return 1;
+                if (t.startsWith('08:30') || t.startsWith('08h30') || t.startsWith('08:00')) return 2;
+                if (t.startsWith('09:30') || t.startsWith('09h30') || t.startsWith('09:00')) return 3;
+                if (t.startsWith('10:30') || t.startsWith('10h30') || t.startsWith('10:00')) return 4;
+                if (t.startsWith('11:30') || t.startsWith('11h30')) return 5;
+                if (t.startsWith('13:00') || t.startsWith('13h00') || t.startsWith('12:30')) return 6;
+                if (t.startsWith('14:00') || t.startsWith('14h00') || t.startsWith('13:30')) return 7;
+                if (t.startsWith('15:00') || t.startsWith('15h00') || t.startsWith('15:30')) return 8;
+                if (t.startsWith('16:00') || t.startsWith('16h00')) return 9;
+                if (t.startsWith('17:00') || t.startsWith('17h00') || t.startsWith('17:30') || t.startsWith('18:00')) return 10;
+                return 1;
+            }
+
+            // Mapeia o horário de término para o período mais provável
+            function mapTimeToEndPeriod(timeStr) {
+                const t = timeStr.trim();
+                if (t.startsWith('08:20') || t.startsWith('09:00') || t.startsWith('08h20')) return 1;
+                if (t.startsWith('09:20') || t.startsWith('09:50') || t.startsWith('09h20')) return 2;
+                if (t.startsWith('10:20') || t.startsWith('11:00') || t.startsWith('10h20')) return 3;
+                if (t.startsWith('11:20') || t.startsWith('11:30') || t.startsWith('12:00') || t.startsWith('11h20')) return 4;
+                if (t.startsWith('12:20') || t.startsWith('12h20')) return 5;
+                if (t.startsWith('13:50') || t.startsWith('14:00') || t.startsWith('13h50')) return 6;
+                if (t.startsWith('14:50') || t.startsWith('15:00') || t.startsWith('14h50')) return 7;
+                if (t.startsWith('15:50') || t.startsWith('17:00') || t.startsWith('15h50')) return 8;
+                if (t.startsWith('16:50') || t.startsWith('17:30') || t.startsWith('16h50')) return 9;
+                if (t.startsWith('17:50') || t.startsWith('19:30') || t.startsWith('20:00') || t.startsWith('17h50')) return 10;
+                return 3;
+            }
+
+            const parts = schedStr.split(',');
+            const dayParts = [];
+            let timePart = '';
+
+            function hasDayIndicator(str) {
+                const s = normalizeStr(str);
+                return s.includes('thu') || s.includes('t2') || s.includes('t3') || s.includes('t4') || 
+                       s.includes('t5') || s.includes('t6') || s.includes('t7') || 
+                       s.includes('hai') || s.includes('ba') || s.includes('tu') || s.includes('nam') || 
+                       s.includes('sau') || s.includes('bay');
+            }
+
+            parts.forEach(part => {
+                const trimmed = part.trim();
+                if (!trimmed) return;
+                if (hasDayIndicator(trimmed)) {
+                    dayParts.push(trimmed);
+                } else {
+                    timePart = trimmed;
+                }
+            });
+
+            if (dayParts.length === 0) {
+                const tokens = schedStr.split(/\s+/);
+                tokens.forEach(tok => {
+                    if (hasDayIndicator(tok)) {
+                        dayParts.push(tok);
+                    } else {
+                        timePart = tok;
+                    }
+                });
+            }
+
+            const daysPart = dayParts.join(', ');
+
+            if (daysPart.includes('-')) {
+                const rangeParts = daysPart.split('-').map(s => s.trim());
+                if (rangeParts.length >= 2) {
+                    const startIdx = getDayIdx(rangeParts[0]);
+                    const endIdx = getDayIdx(rangeParts[1]);
+                    if (startIdx !== -1 && endIdx !== -1 && startIdx <= endIdx) {
+                        for (let i = startIdx; i <= endIdx; i++) {
+                            activeDays.add(i);
+                        }
+                    }
+                }
+            } else {
+                const normDaysPart = normalizeStr(daysPart);
+                const dayChecks = [
+                    { id: 0, names: ['thu 2', 't2', 'hai'] },
+                    { id: 1, names: ['thu 3', 't3', 'ba'] },
+                    { id: 2, names: ['thu 4', 't4', 'tu'] },
+                    { id: 3, names: ['thu 5', 't5', 'nam'] },
+                    { id: 4, names: ['thu 6', 't6', 'sau'] },
+                    { id: 5, names: ['thu 7', 't7', 'bay'] }
+                ];
+                dayChecks.forEach(dc => {
+                    dc.names.forEach(name => {
+                        if (normDaysPart.includes(name)) {
+                            activeDays.add(dc.id);
+                        }
+                    });
+                });
+            }
+
+            if (timePart) {
+                const periodMatch = timePart.match(/Tiết\s*(\d+)(?:\s*-\s*(\d+))?/i);
+                if (periodMatch) {
+                    startPeriod = parseInt(periodMatch[1]);
+                    endPeriod = periodMatch[2] ? parseInt(periodMatch[2]) : startPeriod;
+                } else {
+                    const timeMatch = timePart.match(/(\d{1,2}[:h]\d{2})\s*(?:-)\s*(\d{1,2}[:h]\d{2})/);
+                    if (timeMatch) {
+                        const startH = timeMatch[1].replace('h', ':');
+                        const endH = timeMatch[2].replace('h', ':');
+                        startPeriod = mapTimeToStartPeriod(startH);
+                        endPeriod = mapTimeToEndPeriod(endH);
+                    } else {
+                        const singleTimes = timePart.match(/(\d{1,2}[:h]\d{2})/g);
+                        if (singleTimes && singleTimes.length >= 2) {
+                            const startH = singleTimes[0].replace('h', ':');
+                            const endH = singleTimes[1].replace('h', ':');
+                            startPeriod = mapTimeToStartPeriod(startH);
+                            endPeriod = mapTimeToEndPeriod(endH);
+                        }
+                    }
+                }
+            }
+
+            return { activeDays, startPeriod, endPeriod };
+        }
 
         // ===== LOAD & RENDER CLASSES =====
         async function loadC(){
@@ -216,7 +567,17 @@
         // ===== CRUD CLASS =====
         async function loadLec(){try{const l=await apiCall('/api/lecturers');const s=document.getElementById('cLec');l.forEach(x=>{const o=document.createElement('option');o.value=x.id;o.textContent=x.full_name;s.appendChild(o)})}catch(e){}}
 
-        function openAddC(){document.getElementById('cMTitle').textContent='Thêm lớp học mới';document.getElementById('cEId').value='';document.getElementById('cFrm').reset();openModal('cModal')}
+        function openAddC(){
+            document.getElementById('cMTitle').textContent='Thêm lớp học mới';
+            document.getElementById('cEId').value='';
+            document.getElementById('cFrm').reset();
+            const btns = document.querySelectorAll('.day-btn');
+            btns.forEach(btn => btn.classList.remove('active'));
+            document.getElementById('cSchedPeriodStart').value = '1';
+            document.getElementById('cSchedPeriodEnd').value = '3';
+            document.getElementById('cSched').value = '';
+            openModal('cModal');
+        }
 
         function editC(id){
             const c=classes.find(x=>x.id===id);if(!c)return;
@@ -225,8 +586,8 @@
             document.getElementById('cCode').value=c.class_code;
             document.getElementById('cName').value=c.class_name;
             document.getElementById('cLec').value=c.lecturer_id||'';
-            document.getElementById('cSched').value=c.schedule||'';
             document.getElementById('cRoom').value=c.room||'';
+            loadScheduleToUI(c.schedule || '');
             openModal('cModal');
         }
 

@@ -5,6 +5,15 @@ Cung cấp REST API cho Web Dashboard và WebSocket cho realtime updates.
 Sử dụng: python server.py
 """
 
+import sys
+# Cấu hình encoding UTF-8 cho Windows console
+if sys.platform.startswith('win'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
+
 import os
 import json
 import asyncio
@@ -69,6 +78,9 @@ app.add_middleware(NoCacheMiddleware)
 web_dir = os.path.join(BASE_DIR, "web")
 if os.path.exists(web_dir):
     app.mount("/web", StaticFiles(directory=web_dir), name="web")
+
+if os.path.exists(EXPORTS_DIR):
+    app.mount("/exports", StaticFiles(directory=EXPORTS_DIR), name="exports")
 
 
 # ============================================
@@ -386,6 +398,34 @@ async def dashboard_recent(limit: int = 10, token: Optional[str] = Query(None)):
             lecturer_id = user.get("id")
 
     data = get_recent_attendance(limit, lecturer_id)
+    return serialize_rows(data)
+
+
+@app.get("/api/dashboard/charts")
+async def dashboard_charts(token: Optional[str] = Query(None)):
+    """Lấy dữ liệu biểu đồ (phân quyền theo role)"""
+    lecturer_id = None
+    if token:
+        user = get_current_user(token)
+        if user and user.get("role") != "admin":
+            lecturer_id = user.get("id")
+
+    from database import get_dashboard_charts
+    data = get_dashboard_charts(lecturer_id)
+    return data
+
+
+@app.get("/api/dashboard/timetable")
+async def dashboard_timetable(token: Optional[str] = Query(None)):
+    """Lấy dữ liệu thời khóa biểu (phân quyền theo role)"""
+    lecturer_id = None
+    if token:
+        user = get_current_user(token)
+        if user and user.get("role") != "admin":
+            lecturer_id = user.get("id")
+
+    from database import get_lecturer_timetable
+    data = get_lecturer_timetable(lecturer_id)
     return serialize_rows(data)
 
 
@@ -728,7 +768,21 @@ async def recognize_frame_api(data: RecognizeFrameRequest):
                         now = datetime.now()
                         status = "present"
                         
-                        success = mark_attendance(student["id"], data.class_id, float(confidence), status)
+                        # Chuẩn bị lưu ảnh bằng chứng (Evidence Snapshot)
+                        evidence_path = None
+                        evidence_dir = os.path.join(EXPORTS_DIR, "evidence")
+                        os.makedirs(evidence_dir, exist_ok=True)
+                        evidence_filename = f"{student['student_code']}_{data.class_id}_{int(now.timestamp())}.jpg"
+                        evidence_full_path = os.path.join(evidence_dir, evidence_filename)
+                        
+                        try:
+                            # Lưu file ảnh frame camera
+                            cv2.imwrite(evidence_full_path, frame)
+                            evidence_path = f"/exports/evidence/{evidence_filename}"
+                        except Exception as img_err:
+                            print(f"❌ Lỗi ghi ảnh bằng chứng: {img_err}")
+                            
+                        success = mark_attendance(student["id"], data.class_id, float(confidence), status, evidence_path)
                         
                         if success:
                             websocket_message = {
@@ -737,7 +791,8 @@ async def recognize_frame_api(data: RecognizeFrameRequest):
                                 "student_name": student["full_name"],
                                 "class_id": data.class_id,
                                 "confidence": float(confidence),
-                                "time": now.strftime("%H:%M:%S")
+                                "time": now.strftime("%H:%M:%S"),
+                                "evidence_path": evidence_path
                             }
                             await manager.broadcast(websocket_message)
                         
@@ -746,6 +801,7 @@ async def recognize_frame_api(data: RecognizeFrameRequest):
                             "full_name": student["full_name"],
                             "confidence": float(confidence),
                             "status": status,
+                            "evidence_path": evidence_path,
                             "already_marked": not success
                         })
                         

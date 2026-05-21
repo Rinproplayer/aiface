@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tổng quan - AI Face Attendance</title>
     <link rel="stylesheet" href="/web/css/style.css">
+    <!-- Chart.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="animated-bg"><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
@@ -13,8 +15,18 @@
 
         <main class="main">
             <div class="page-top">
-                <div><h1>Tổng quan</h1><p class="desc">Bảng điều khiển hệ thống điểm danh thông minh</p></div>
+                <div><h1>Cổng thông tin Đào tạo</h1><p class="desc">Bảng điều khiển hệ thống giảng viên và điểm danh thông minh</p></div>
                 <div style="display:flex;align-items:center;gap:8px"><span class="dot" id="dot"></span><span style="font-size:12px;color:var(--text-dim)">Realtime</span></div>
+            </div>
+
+            <!-- Portal Welcome Banner -->
+            <div class="welcome-banner">
+                <div class="welcome-content">
+                    <div class="welcome-badge" id="portalRoleBadge">Hệ thống Quản lý Đào tạo</div>
+                    <h1 class="welcome-title">Xin chào, <span id="welcomeLecturerName">Giảng viên</span>!</h1>
+                    <p class="welcome-desc">Chào mừng bạn quay lại. Hôm nay là <span id="currentDateText">...</span> • Học kỳ II • Năm học 2025-2026</p>
+                </div>
+                <div class="welcome-decor"></div>
             </div>
 
             <div class="stats">
@@ -40,6 +52,36 @@
                 </div>
             </div>
 
+            <!-- Charts Analysis Row -->
+            <div class="grid-2" style="margin-bottom: 28px;">
+                <div class="panel">
+                    <div class="panel-head">
+                        <h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/></svg>Tỷ lệ điểm danh hôm nay</h2>
+                    </div>
+                    <div class="chart-container" style="position: relative; height:240px; display:flex; justify-content:center; align-items:center;">
+                        <canvas id="todayChart"></canvas>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panel-head">
+                        <h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20V14"/></svg>Tỷ lệ chuyên cần các lớp phụ trách (%)</h2>
+                    </div>
+                    <div class="chart-container" style="position: relative; height:240px;">
+                        <canvas id="classesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timetable Panel -->
+            <div class="panel" style="margin-bottom: 28px;">
+                <div class="panel-head">
+                    <h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Lịch giảng dạy tuần (Thời khóa biểu)</h2>
+                </div>
+                <div class="timetable-grid" id="timetableGrid">
+                    <!-- Dynamically generated days -->
+                </div>
+            </div>
+
             <div class="grid-2">
                 <div class="panel">
                     <div class="panel-head">
@@ -59,7 +101,289 @@
     </div>
     <script src="/web/js/app.js"></script><script src="/web/js/sidebar.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded',async()=>{await refreshStats();await loadRecent()});
+        document.addEventListener('DOMContentLoaded',async()=>{
+            initPortalWelcome();
+            await refreshStats();
+            await loadRecent();
+            await initCharts();
+            await initTimetable();
+        });
+
+        function initPortalWelcome() {
+            const daysVi = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+            const todayObj = new Date();
+            const todayDayName = daysVi[todayObj.getDay()];
+            const formattedDate = todayObj.toLocaleDateString('vi-VN');
+            document.getElementById('currentDateText').textContent = `${todayDayName}, ngày ${formattedDate}`;
+
+            const u = getUser();
+            if(u){
+                document.getElementById('welcomeLecturerName').textContent = u.full_name || u.username;
+                document.getElementById('portalRoleBadge').textContent = u.role === 'admin' ? 'Cổng quản trị viên' : 'Cổng giảng viên';
+            }
+        }
+
+        async function initCharts() {
+            try {
+                const data = await apiCall('/api/dashboard/charts');
+                if (!data) return;
+
+                // 1. Doughnut Chart: Today ratio
+                const ratio = data.today_ratio || { present: 0, late: 0, absent: 0 };
+                const total = ratio.present + ratio.late + ratio.absent;
+                const hasData = total > 0;
+                
+                const todayCtx = document.getElementById('todayChart').getContext('2d');
+                new Chart(todayCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: hasData ? ['Có mặt', 'Đi trễ', 'Vắng'] : ['Chưa có dữ liệu hôm nay'],
+                        datasets: [{
+                            data: hasData ? [ratio.present, ratio.late, ratio.absent] : [1],
+                            backgroundColor: hasData ? ['#10b981', '#f59e0b', '#ef4444'] : ['rgba(122, 122, 160, 0.15)'],
+                            borderWidth: 0,
+                            hoverOffset: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    color: 'var(--text-dim)',
+                                    font: { family: 'Inter', size: 11.5, weight: '500' },
+                                    padding: 15
+                                }
+                            }
+                        },
+                        cutout: '72%'
+                    }
+                });
+
+                // 2. Bar Chart: Classes attendance rate comparison
+                const stats = data.class_stats || [];
+                const labels = stats.map(s => s.class_code);
+                const values = stats.map(s => s.attendance_rate);
+                
+                const classesCtx = document.getElementById('classesChart').getContext('2d');
+                new Chart(classesCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Tỷ lệ chuyên cần (%)',
+                            data: values,
+                            backgroundColor: 'rgba(99, 102, 241, 0.4)',
+                            borderColor: '#6366f1',
+                            borderWidth: 1.5,
+                            borderRadius: 6,
+                            borderSkipped: false,
+                            barThickness: 26
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const idx = context.dataIndex;
+                                        const info = stats[idx];
+                                        return ` Tỷ lệ: ${info.attendance_rate}% (${info.total_students} SV, ${info.total_sessions} buổi)`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                max: 100,
+                                min: 0,
+                                grid: { color: 'var(--border)', drawBorder: false },
+                                ticks: { color: 'var(--text-dim)', font: { family: 'Inter', size: 10.5 } }
+                            },
+                            x: {
+                                grid: { display: false },
+                                ticks: { color: 'var(--text-dim)', font: { family: 'Inter', size: 11, weight: '600' } }
+                            }
+                        }
+                    }
+                });
+            } catch(e) {
+                console.error("Error drawing charts:", e);
+            }
+        }
+
+        async function initTimetable() {
+            try {
+                const data = await apiCall('/api/dashboard/timetable');
+                if (!data) return;
+
+                const days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                const timetableMap = {
+                    'Thứ 2': [], 'Thứ 3': [], 'Thứ 4': [], 'Thứ 5': [], 'Thứ 6': [], 'Thứ 7': []
+                };
+
+                // Hàm chuẩn hóa tiếng Việt không dấu để so sánh
+                function normalizeStr(str) {
+                    return str.toLowerCase()
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .replace(/đ/g, "d")
+                        .trim();
+                }
+
+                // Hàm chuyển đổi chuỗi ngày thành chỉ số (0: Thứ 2 -> 5: Thứ 7)
+                function getDayIdx(str) {
+                    const s = normalizeStr(str);
+                    if (/\b(t2|t\.2|thu\s*2|thu\s*hai|hai|monday|mon)\b/i.test(s) || s === 't2' || s === 'thu 2' || s === 'hai') return 0;
+                    if (/\b(t3|t\.3|thu\s*3|thu\s*ba|ba|tuesday|tue)\b/i.test(s) || s === 't3' || s === 'thu 3' || s === 'ba') return 1;
+                    if (/\b(t4|t\.4|thu\s*4|thu\s*tu|tu|wednesday|wed)\b/i.test(s) || s === 't4' || s === 'thu 4' || s === 'tu') return 2;
+                    if (/\b(t5|t\.5|thu\s*5|thu\s*nam|nam|thursday)\b/i.test(s) || s === 't5' || s === 'thu 5' || s === 'nam' || s === 'thu') return 3;
+                    if (/\b(t6|t\.6|thu\s*6|thu\s*sau|sau|friday|fri)\b/i.test(s) || s === 't6' || s === 'thu 6' || s === 'sau') return 4;
+                    if (/\b(t7|t\.7|thu\s*7|thu\s*bay|bay|saturday|sat)\b/i.test(s) || s === 't7' || s === 'thu 7' || s === 'bay') return 5;
+                    
+                    if (s.includes('t2') || s.includes('thu 2') || s.includes('hai')) return 0;
+                    if (s.includes('t3') || s.includes('thu 3') || s.includes('ba')) return 1;
+                    if (s.includes('t4') || s.includes('thu 4') || s.includes('tu')) return 2;
+                    if (s.includes('t5') || s.includes('thu 5') || s.includes('nam')) return 3;
+                    if (s.includes('t6') || s.includes('thu 6') || s.includes('sau')) return 4;
+                    if (s.includes('t7') || s.includes('thu 7') || s.includes('bay')) return 5;
+                    return -1;
+                }
+
+                // Hàm kiểm tra một chuỗi có chứa từ khóa liên quan đến ngày học hay không
+                function hasDayIndicator(str) {
+                    const s = normalizeStr(str);
+                    return s.includes('thu') || s.includes('t2') || s.includes('t3') || s.includes('t4') || 
+                           s.includes('t5') || s.includes('t6') || s.includes('t7') || s.includes('cn') || 
+                           s.includes('hai') || s.includes('ba') || s.includes('tu') || s.includes('nam') || 
+                           s.includes('sau') || s.includes('bay') || s.includes('chu nhat');
+                }
+
+                // Map database schedules
+                data.forEach(cls => {
+                    const sched = cls.schedule || '';
+                    if (!sched.trim()) return;
+
+                    let matchedDays = [];
+                    let timeStr = 'Lịch dạy';
+
+                    // Tách lịch dạy theo dấu phẩy để phân biệt phần ngày và phần giờ
+                    const parts = sched.split(',');
+                    const dayParts = [];
+
+                    parts.forEach(part => {
+                        const trimmed = part.trim();
+                        if (!trimmed) return;
+                        
+                        // Nếu có chỉ thị về ngày thì coi là phần mô tả ngày, ngược lại coi là thời gian
+                        if (hasDayIndicator(trimmed)) {
+                            dayParts.push(trimmed);
+                        } else {
+                            timeStr = trimmed;
+                        }
+                    });
+
+                    const daysStr = dayParts.join(', ');
+
+                    // Xử lý các khoảng ngày, ví dụ: "Thu 2 - Thu 4" hoặc "T2 - T4"
+                    if (daysStr.includes('-')) {
+                        const rangeParts = daysStr.split('-').map(s => s.trim());
+                        if (rangeParts.length >= 2) {
+                            const startIdx = getDayIdx(rangeParts[0]);
+                            const endIdx = getDayIdx(rangeParts[1]);
+                            
+                            if (startIdx !== -1 && endIdx !== -1 && startIdx <= endIdx) {
+                                for (let i = startIdx; i <= endIdx; i++) {
+                                    matchedDays.push(days[i]);
+                                }
+                            } else {
+                                // Fallback nếu không xác định được khoảng
+                                days.forEach(d => {
+                                    if (normalizeStr(daysStr).includes(normalizeStr(d))) {
+                                        matchedDays.push(d);
+                                    }
+                                });
+                            }
+                        }
+                    } else {
+                        // Xử lý nhiều ngày riêng lẻ, ví dụ: "T2, T4, T6" hoặc "Thứ 3, Thứ 5"
+                        const individualParts = daysStr.split(/[,;\/\s]+/);
+                        individualParts.forEach(p => {
+                            const idx = getDayIdx(p);
+                            if (idx !== -1) {
+                                const dayName = days[idx];
+                                if (!matchedDays.includes(dayName)) {
+                                    matchedDays.push(dayName);
+                                }
+                            }
+                        });
+
+                        // Fallback kiểm tra chuỗi lớn chứa tên ngày đầy đủ
+                        if (matchedDays.length === 0) {
+                            days.forEach(d => {
+                                if (normalizeStr(daysStr).includes(normalizeStr(d))) {
+                                    matchedDays.push(d);
+                                }
+                            });
+                        }
+                    }
+
+                    // Đưa thông tin lớp học vào bảng thời khóa biểu
+                    matchedDays.forEach(d => {
+                        if (timetableMap[d]) {
+                            timetableMap[d].push({
+                                class_code: cls.class_code,
+                                class_name: cls.class_name,
+                                time: timeStr,
+                                room: cls.room || 'P. Học'
+                            });
+                        }
+                    });
+                });
+
+                // Highlight today column
+                const currentDayIndex = new Date().getDay(); // 0 Sun, 1 Mon ...
+                const daysViShort = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                const todayDayNameVi = daysViShort[currentDayIndex];
+
+                const grid = document.getElementById('timetableGrid');
+                grid.innerHTML = days.map(d => {
+                    const isToday = (d === todayDayNameVi);
+                    const list = timetableMap[d] || [];
+                    
+                    const cardsHtml = list.length > 0 
+                        ? list.map(item => `
+                            <div class="timetable-class-card">
+                                <div class="timetable-class-time">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    ${item.time}
+                                </div>
+                                <div class="timetable-class-name">${item.class_name}</div>
+                                <div class="timetable-class-room">
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                                    Phòng ${item.room} (${item.class_code})
+                                </div>
+                            </div>
+                        `).join('')
+                        : `<div class="timetable-empty">Nghỉ dạy</div>`;
+                        
+                    return `
+                        <div class="timetable-day ${isToday ? 'today-highlight' : ''}">
+                            <div class="timetable-day-title">${d} ${isToday ? '• Hôm nay' : ''}</div>
+                            ${cardsHtml}
+                        </div>
+                    `;
+                }).join('');
+            } catch(e) {
+                console.error("Error loading timetable:", e);
+            }
+        }
+
         async function loadRecent(){
             try{
                 const d=await apiCall('/api/dashboard/recent?limit=8');const c=document.getElementById('recent');

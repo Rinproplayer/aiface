@@ -7,6 +7,15 @@ Chứa tất cả các hàm thao tác với database:
 - Quản lý giảng viên
 """
 
+import sys
+# Cấu hình encoding UTF-8 cho Windows console
+if sys.platform.startswith('win'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
+
 import mysql.connector
 from mysql.connector import Error
 from datetime import datetime, date, timedelta
@@ -491,8 +500,22 @@ def unenroll_student(student_id, class_id):
 # ĐIỂM DANH (Attendance)
 # ============================================
 
-def mark_attendance(student_id, class_id, confidence=0.0, status="present"):
+def mark_attendance(student_id, class_id, confidence=0.0, status="present", evidence_path=None):
     """Ghi nhận điểm danh cho sinh viên"""
+    # Tự động sửa lỗi đảo thứ tự tham số nếu confidence là chuỗi và status là số
+    if isinstance(confidence, str) and not isinstance(status, str):
+        confidence, status = status, confidence
+    
+    # Đảm bảo confidence là số thực
+    try:
+        confidence = float(confidence)
+    except (ValueError, TypeError):
+        confidence = 1.0
+
+    # Đảm bảo status hợp lệ
+    if status not in ['present', 'late', 'absent']:
+        status = 'present'
+
     conn = get_connection()
     if not conn:
         return False
@@ -510,9 +533,9 @@ def mark_attendance(student_id, class_id, confidence=0.0, status="present"):
             return False  # Đã điểm danh rồi
 
         cursor.execute(
-            """INSERT INTO attendance (student_id, class_id, date, check_in_time, status, confidence) 
-               VALUES (%s, %s, %s, %s, %s, %s)""",
-            (student_id, class_id, today, now, status, confidence)
+            """INSERT INTO attendance (student_id, class_id, date, check_in_time, status, confidence, evidence_path) 
+               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+            (student_id, class_id, today, now, status, confidence, evidence_path)
         )
         conn.commit()
         return True
@@ -733,6 +756,141 @@ def get_recent_attendance(limit=10, lecturer_id=None):
         return []
     finally:
         conn.close()
+
+
+def get_dashboard_charts(lecturer_id=None):
+    """Lấy dữ liệu thống kê biểu đồ động (tỷ lệ chuyên cần từng lớp, tỷ lệ hôm nay)"""
+    conn = get_connection()
+    if not conn:
+        return {}
+    try:
+        cursor = conn.cursor(dictionary=True)
+        # 1. Lấy danh sách lớp học
+        if lecturer_id is not None:
+            cursor.execute("SELECT id, class_code, class_name FROM classes WHERE lecturer_id = %s", (lecturer_id,))
+        else:
+            cursor.execute("SELECT id, class_code, class_name FROM classes")
+        classes = cursor.fetchall()
+        
+        class_stats = []
+        for c in classes:
+            cid = c["id"]
+            # Số buổi học đã điểm danh
+            cursor.execute("SELECT COUNT(DISTINCT date) as count FROM attendance WHERE class_id = %s", (cid,))
+            total_sessions = cursor.fetchone()["count"] or 0
+            
+            # Số học sinh trong lớp
+            cursor.execute("SELECT COUNT(*) as count FROM student_classes WHERE class_id = %s", (cid,))
+            total_students = cursor.fetchone()["count"] or 0
+            
+            # Tổng số lượt có mặt và đi trễ
+            cursor.execute(
+                "SELECT COUNT(*) as count FROM attendance WHERE class_id = %s AND status IN ('present', 'late')",
+                (cid,)
+            )
+            total_attended = cursor.fetchone()["count"] or 0
+            
+            # Tỷ lệ đi học chuyên cần (%) = (tổng lượt đi học) / (số buổi * số học sinh) * 100
+            max_possible_attendance = total_sessions * total_students
+            rate = 100
+            if max_possible_attendance > 0:
+                rate = (total_attended / max_possible_attendance) * 100
+                
+            class_stats.append({
+                "class_code": c["class_code"],
+                "class_name": c["class_name"],
+                "attendance_rate": round(rate, 1),
+                "total_students": total_students,
+                "total_sessions": total_sessions
+            })
+            
+        # 2. Tỷ lệ trạng thái hôm nay (present, late, absent)
+        today = date.today()
+        if lecturer_id is not None:
+            cursor.execute("""
+                SELECT status, COUNT(*) as count 
+                FROM attendance a
+                JOIN classes c ON a.class_id = c.id
+                WHERE c.lecturer_id = %s AND a.date = %s
+                GROUP BY status
+            """, (lecturer_id, today))
+        else:
+            cursor.execute("""
+                SELECT status, COUNT(*) as count 
+                FROM attendance 
+                WHERE date = %s
+                GROUP BY status
+            """, (today,))
+            
+        today_ratio = cursor.fetchall()
+        ratio_dict = {"present": 0, "late": 0, "absent": 0}
+        for r in today_ratio:
+            ratio_dict[r["status"]] = r["count"]
+            
+        return {
+            "class_stats": class_stats,
+            "today_ratio": ratio_dict
+        }
+    except Error as e:
+        print(f"❌ Lỗi truy vấn biểu đồ: {e}")
+        return {}
+    finally:
+        conn.close()
+
+
+def get_lecturer_timetable(lecturer_id=None):
+    """Lấy danh sách thời khóa biểu các lớp được phân công"""
+    conn = get_connection()
+    if not conn:
+        return []
+    try:
+        cursor = conn.cursor(dictionary=True)
+        if lecturer_id is not None:
+            cursor.execute("""
+                SELECT class_code, class_name, schedule, room, c.created_at, l.full_name as lecturer_name
+                FROM classes c
+                LEFT JOIN lecturers l ON c.lecturer_id = l.id
+                WHERE lecturer_id = %s
+            """, (lecturer_id,))
+        else:
+            cursor.execute("""
+                SELECT class_code, class_name, schedule, room, c.created_at, l.full_name as lecturer_name
+                FROM classes c
+                LEFT JOIN lecturers l ON c.lecturer_id = l.id
+            """)
+        return cursor.fetchall()
+    except Error as e:
+        print(f"❌ Lỗi truy vấn thời khóa biểu: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def check_and_upgrade_database():
+    """Tự động kiểm tra và thêm các cột cần thiết cho phiên bản mới"""
+    conn = get_connection()
+    if not conn:
+        return
+    try:
+        cursor = conn.cursor()
+        # Kiểm tra xem cột evidence_path đã tồn tại chưa
+        cursor.execute("SHOW COLUMNS FROM attendance LIKE 'evidence_path'")
+        result = cursor.fetchone()
+        if not result:
+            print("🚀 Nâng cấp Database: Thêm cột 'evidence_path' vào bảng 'attendance'...")
+            cursor.execute("ALTER TABLE attendance ADD COLUMN evidence_path VARCHAR(255) NULL")
+            conn.commit()
+            print("✅ Đã nâng cấp bảng 'attendance' thành công!")
+    except Error as e:
+        print(f"❌ Lỗi nâng cấp database: {e}")
+    finally:
+        conn.close()
+
+# Tự động chạy nâng cấp database khi import module
+try:
+    check_and_upgrade_database()
+except Exception as ex:
+    print(f"⚠️ Không thể nâng cấp tự động database: {ex}")
 
 
 if __name__ == "__main__":

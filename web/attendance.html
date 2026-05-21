@@ -147,10 +147,12 @@
                     <button class="btn btn-ghost" onclick="openManualModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Điểm danh thủ công</button>
                 </div>
             </div>
+            <div id="warningsBannerContainer"></div>
+
             <div class="panel">
                 <div class="panel-head"><h2>Danh sách điểm danh</h2><span id="attCount" class="badge badge-info">0 SV</span></div>
-                <div class="tbl-wrap"><table><thead><tr><th>STT</th><th>Mã SV</th><th>Họ và tên</th><th>Thời gian</th><th>Trạng thái</th><th>Độ tin cậy</th><th>Sửa</th></tr></thead>
-                <tbody id="attTbl"><tr><td colspan="7" class="empty"><p>Chọn lớp và ngày để xem</p></td></tr></tbody></table></div>
+                <div class="tbl-wrap"><table><thead><tr><th>STT</th><th>Mã SV</th><th>Họ và tên</th><th>Ảnh AI</th><th>Thời gian</th><th>Trạng thái</th><th>Độ tin cậy</th><th>Sửa</th></tr></thead>
+                <tbody id="attTbl"><tr><td colspan="8" class="empty"><p>Chọn lớp và ngày để xem</p></td></tr></tbody></table></div>
             </div>
             <div class="panel" id="sumPanel" style="display:none">
                 <div class="panel-head"><h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Thống kê tổng hợp</h2></div>
@@ -235,6 +237,68 @@
         </div>
     </div>
 
+    <!-- Modal: Glassmorphic Lightbox for Evidence -->
+    <div class="modal-bg" id="evidenceLightboxModal">
+        <div class="modal" style="max-width:440px">
+            <div class="modal-top">
+                <h3>Bằng chứng điểm danh AI</h3>
+                <button class="modal-x" onclick="closeModal('evidenceLightboxModal')">✕</button>
+            </div>
+            <div class="lightbox-img-wrapper">
+                <img id="lightboxImg" src="" class="lightbox-img" alt="Bằng chứng khuôn mặt">
+            </div>
+            <div class="lightbox-meta">
+                <div class="lightbox-meta-row">
+                    <span class="lightbox-meta-label">Sinh viên:</span>
+                    <span class="lightbox-meta-val" id="lightboxStudent">...</span>
+                </div>
+                <div class="lightbox-meta-row">
+                    <span class="lightbox-meta-label">Thời gian quét:</span>
+                    <span class="lightbox-meta-val" id="lightboxTime">...</span>
+                </div>
+                <div class="lightbox-meta-row">
+                    <span class="lightbox-meta-label">Độ chính xác:</span>
+                    <span class="lightbox-meta-val" id="lightboxConfidence">...</span>
+                </div>
+            </div>
+            <div class="modal-btns">
+                <button class="btn btn-primary" onclick="closeModal('evidenceLightboxModal')">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Flagged Absentees Warnings List -->
+    <div class="modal-bg" id="absenteesWarningsModal">
+        <div class="modal" style="max-width:480px">
+            <div class="modal-top">
+                <h3 style="color:var(--red); display:flex; align-items:center; gap:8px">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    Sinh viên vắng nhiều (> 3 buổi)
+                </h3>
+                <button class="modal-x" onclick="closeModal('absenteesWarningsModal')">✕</button>
+            </div>
+            <div class="tbl-wrap" style="margin-top: 10px; max-height: 300px; overflow-y: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mã SV</th>
+                            <th>Họ và tên</th>
+                            <th>Số buổi vắng</th>
+                            <th>Tỷ lệ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="absenteesWarningsTbl">
+                        <!-- Filled dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-btns">
+                <button class="btn btn-red" onclick="closeModal('absenteesWarningsModal')">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+
     <script src="/web/js/app.js"></script><script src="/web/js/sidebar.js"></script>
     <script>
         let scanStream = null, scanInterval = null;
@@ -242,20 +306,116 @@
         async function loadCls(){try{const c=await apiCall('/api/classes');const s=document.getElementById('fClass');c.forEach(x=>{const o=document.createElement('option');o.value=x.id;o.textContent=`${x.class_code} - ${x.class_name}`;s.appendChild(o)})}catch(e){}}
         
         async function loadAtt(){const cid=document.getElementById('fClass').value,dt=document.getElementById('fDate').value;if(!cid){showToast('Chọn lớp!','warning');return}
-            try{let url=`/api/attendance?class_id=${cid}`;if(dt)url+=`&date=${dt}`;const d=await apiCall(url);document.getElementById('attCount').textContent=`${d.length} SV`;const t=document.getElementById('attTbl');if(!d.length){t.innerHTML='<tr><td colspan="7" class="empty"><p>Không có dữ liệu</p></td></tr>';return}
-                t.innerHTML=d.map((a,i)=>`<tr>
-                    <td>${i+1}</td>
-                    <td><strong>${a.student_code}</strong></td>
-                    <td>${a.full_name}</td>
-                    <td>${fmtDateTime(a.check_in_time)}</td>
-                    <td>${statusBadge(a.status)}</td>
-                    <td><span class="badge badge-info">${(a.confidence*100).toFixed(0)}%</span></td>
-                    <td><button class="btn btn-ghost btn-sm" onclick="editManual(${a.student_id}, '${a.status}')" title="Sửa trạng thái"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></td>
-                </tr>`).join('');
-                loadSum(cid);
+            try{let url=`/api/attendance?class_id=${cid}`;if(dt)url+=`&date=${dt}`;const d=await apiCall(url);document.getElementById('attCount').textContent=`${d.length} SV`;const t=document.getElementById('attTbl');if(!d.length){t.innerHTML='<tr><td colspan="8" class="empty"><p>Không có dữ liệu</p></td></tr>';return}
+                t.innerHTML=d.map((a,i)=>{
+                    const evidenceHtml = a.evidence_path 
+                        ? `<div class="evidence-container"><img class="evidence-thumb" src="/${a.evidence_path}" onclick="viewEvidence('${a.student_code}', '${a.full_name}', '${a.evidence_path}', '${a.check_in_time}', ${a.confidence})" title="Click để phóng to ảnh chụp khuôn mặt AI"></div>`
+                        : `<span class="evidence-none">Không có</span>`;
+                    return `<tr>
+                        <td>${i+1}</td>
+                        <td><strong>${a.student_code}</strong></td>
+                        <td class="student-name-cell" data-student-id="${a.student_id}">${a.full_name}</td>
+                        <td>${evidenceHtml}</td>
+                        <td>${fmtDateTime(a.check_in_time)}</td>
+                        <td>${statusBadge(a.status)}</td>
+                        <td><span class="badge badge-info">${(a.confidence*100).toFixed(0)}%</span></td>
+                        <td><button class="btn btn-ghost btn-sm" onclick="editManual(${a.student_id}, '${a.status}')" title="Sửa trạng thái"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></td>
+                    </tr>`;
+                }).join('');
+                await loadSum(cid);
             }catch(e){showToast('Lỗi','error')}}
         
-        async function loadSum(cid){try{const d=await apiCall(`/api/attendance/summary?class_id=${cid}`);if(!d.length)return;document.getElementById('sumPanel').style.display='block';document.getElementById('sumTbl').innerHTML=d.map((s,i)=>{const tot=s.total_sessions||0,att=s.total_attended||0,rate=tot>0?((att/tot)*100).toFixed(0):0;const cls=rate>=80?'badge-ok':rate>=50?'badge-warn':'badge-err';return`<tr><td>${i+1}</td><td>${s.student_code}</td><td>${s.full_name}</td><td>${s.present_count||0}</td><td>${s.late_count||0}</td><td>${tot}</td><td><span class="badge ${cls}">${rate}%</span></td></tr>`}).join('')}catch(e){}}
+        async function loadSum(cid){
+            try{
+                const d=await apiCall(`/api/attendance/summary?class_id=${cid}`);
+                if(!d.length) {
+                    document.getElementById('warningsBannerContainer').innerHTML = '';
+                    window.flaggedAbsentees = [];
+                    return;
+                }
+                
+                // Show warning banner for students with > 3 absences
+                const absentees = d.filter(s => {
+                    const tot = s.total_sessions || 0;
+                    const att = s.total_attended || 0;
+                    return (tot - att) > 3;
+                });
+                
+                const bannerContainer = document.getElementById('warningsBannerContainer');
+                if (absentees.length > 0) {
+                    bannerContainer.innerHTML = `
+                        <div class="warnings-banner">
+                            <div class="warnings-left">
+                                <div class="warnings-icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                </div>
+                                <div class="warnings-text">
+                                    <span class="warnings-title">Cảnh báo chuyên cần học tập</span>
+                                    <span class="warnings-desc">Lớp học hiện tại có <strong>${absentees.length} sinh viên</strong> vắng học nhiều hơn 3 buổi (nguy cơ cấm thi).</span>
+                                </div>
+                            </div>
+                            <button class="warnings-btn" onclick="showWarningsModal()">Xem danh sách</button>
+                        </div>
+                    `;
+                    window.flaggedAbsentees = absentees;
+                } else {
+                    bannerContainer.innerHTML = '';
+                    window.flaggedAbsentees = [];
+                }
+
+                document.getElementById('sumPanel').style.display='block';
+                document.getElementById('sumTbl').innerHTML=d.map((s,i)=>{
+                    const tot=s.total_sessions||0,att=s.total_attended||0,rate=tot>0?((att/tot)*100).toFixed(0):0;
+                    const cls=rate>=80?'badge-ok':rate>=50?'badge-warn':'badge-err';
+                    return`<tr><td>${i+1}</td><td>${s.student_code}</td><td>${s.full_name}</td><td>${s.present_count||0}</td><td>${s.late_count||0}</td><td>${tot}</td><td><span class="badge ${cls}">${rate}%</span></td></tr>`
+                }).join('');
+
+                // Dynamic table badges in main list
+                d.forEach(s => {
+                    const tot = s.total_sessions || 0;
+                    const att = s.total_attended || 0;
+                    const abs = tot - att;
+                    if (abs > 3) {
+                        const cells = document.querySelectorAll(`.student-name-cell[data-student-id="${s.student_id}"]`);
+                        cells.forEach(cell => {
+                            if (!cell.querySelector('.student-warn-badge')) {
+                                cell.innerHTML += ` <span class="student-warn-badge" title="Cảnh báo: Sinh viên vắng ${abs} buổi học!"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ${abs} vắng</span>`;
+                            }
+                        });
+                    }
+                });
+            } catch(e) {
+                console.error("Error loading summary stats:", e);
+            }
+        }
+
+        function viewEvidence(code, name, path, time, confidence) {
+            document.getElementById('lightboxImg').src = '/' + path;
+            document.getElementById('lightboxStudent').textContent = `${name} (${code})`;
+            document.getElementById('lightboxTime').textContent = fmtDateTime(time);
+            document.getElementById('lightboxConfidence').textContent = `${(confidence * 100).toFixed(0)}%`;
+            openModal('evidenceLightboxModal');
+        }
+
+        function showWarningsModal() {
+            const list = window.flaggedAbsentees || [];
+            const tbody = document.getElementById('absenteesWarningsTbl');
+            tbody.innerHTML = list.map(s => {
+                const tot = s.total_sessions || 0;
+                const att = s.total_attended || 0;
+                const abs = tot - att;
+                const rate = tot > 0 ? ((att / tot) * 100).toFixed(0) : 0;
+                return `
+                    <tr>
+                        <td><strong>${s.student_code}</strong></td>
+                        <td>${s.full_name}</td>
+                        <td><span class="badge badge-err">${abs} buổi</span></td>
+                        <td><span class="badge badge-err">${rate}%</span></td>
+                    </tr>
+                `;
+            }).join('');
+            openModal('absenteesWarningsModal');
+        }
         async function exportXls(){const cid=document.getElementById('fClass').value,dt=document.getElementById('fDate').value;if(!cid){showToast('Chọn lớp!','warning');return}try{let url=`/api/export/attendance?class_id=${cid}`;if(dt)url+=`&date=${dt}`;const r=await fetch(url);if(!r.ok){const e=await r.json();throw new Error(e.detail)}const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`diemdanh_${dt||'all'}.xlsx`;a.click();showToast('Xuất thành công!','success')}catch(e){showToast(e.message||'Lỗi','error')}}
         async function exportSum(){const cid=document.getElementById('fClass').value;if(!cid){showToast('Chọn lớp!','warning');return}try{const r=await fetch(`/api/export/summary?class_id=${cid}`);if(!r.ok){const e=await r.json();throw new Error(e.detail)}const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tonghop.xlsx';a.click();showToast('Xuất thành công!','success')}catch(e){showToast(e.message||'Lỗi','error')}}
 
